@@ -16,12 +16,11 @@
       --cyan-border: rgba(0,229,255,0.35);
       --gold: #fbbf24;
       --bg: #020d1a;
-      --surface: rgba(2,18,34,0.82);
+      --surface: rgba(2,18,34,0.88);
       --text: #e0f4ff;
       --muted: rgba(180,220,240,0.5);
       --red: #ff4d6d;
       --green: #22d3a0;
-      --fov: 70; /* degrees horizontal FOV */
     }
 
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -38,477 +37,319 @@
 
     /* ── CAMERA ── */
     #camera-feed {
-      position: fixed;
-      inset: 0;
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      z-index: 0;
+      position: fixed; inset: 0;
+      width: 100%; height: 100%;
+      object-fit: cover; z-index: 0;
     }
 
-    /* ── OVERLAY GLOBAL ── */
+    /* ── AR OVERLAY ── */
     #ar-overlay {
-      position: fixed;
-      inset: 0;
-      z-index: 10;
-      pointer-events: none;
+      position: fixed; inset: 0;
+      z-index: 10; pointer-events: none;
     }
 
-    /* ── VIGNETTE ── */
     .vignette {
-      position: fixed;
-      inset: 0;
-      z-index: 5;
-      background: radial-gradient(ellipse at center, transparent 45%, rgba(2,13,26,0.6) 100%);
+      position: fixed; inset: 0; z-index: 5;
+      background: radial-gradient(ellipse at center, transparent 45%, rgba(2,13,26,0.65) 100%);
       pointer-events: none;
     }
 
-    /* ── HORIZON LINE ── */
     .horizon-line {
-      position: absolute;
-      left: 0; right: 0;
-      top: 50%;
+      position: absolute; left: 0; right: 0; top: 50%;
       height: 1px;
       background: linear-gradient(to right, transparent, var(--cyan-border), transparent);
       transform: translateY(-50%);
     }
 
-    .horizon-tick {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 1px;
-      height: 10px;
-      background: var(--cyan-border);
-    }
-
-    /* ── COMPASS BAR ── */
-    #compass-bar {
-      position: fixed;
-      top: 0;
-      left: 0; right: 0;
-      z-index: 20;
-      padding: 0;
-      height: 52px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(to bottom, rgba(2,13,26,0.9), transparent);
-      pointer-events: none;
-      overflow: hidden;
-    }
-
-    #compass-track {
-      position: relative;
-      width: 100%;
-      height: 52px;
-      display: flex;
-      align-items: center;
-      overflow: hidden;
-    }
-
-    .compass-label {
-      position: absolute;
-      top: 50%;
-      transform: translateX(-50%) translateY(-50%);
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      letter-spacing: 0.05em;
-      transition: color 0.2s;
-    }
-    .compass-label.cardinal {
-      font-size: 12px;
-      font-weight: 700;
-      color: var(--cyan);
-    }
-    .compass-label.center-highlight {
-      color: white;
-    }
-
-    /* Center reticle on compass */
-    #compass-center {
-      position: absolute;
-      left: 50%;
-      top: 0; bottom: 0;
-      width: 1px;
-      background: var(--cyan);
-      transform: translateX(-50%);
-      z-index: 2;
-    }
-    #compass-center::before {
-      content: '';
-      position: absolute;
-      bottom: 0;
-      left: 50%;
-      transform: translateX(-50%);
-      width: 5px; height: 5px;
-      background: var(--cyan);
-      border-radius: 50%;
-    }
-
-    /* ── HEADING DISPLAY ── */
-    #heading-display {
-      position: fixed;
-      top: 56px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 20;
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--cyan);
-      background: var(--surface);
-      border: 1px solid var(--cyan-border);
-      border-radius: 20px;
-      padding: 4px 14px;
-      letter-spacing: 0.1em;
-      backdrop-filter: blur(8px);
-      pointer-events: none;
-    }
-
-    /* ── POI LABELS ── */
-    .poi-label {
-      position: absolute;
-      top: 38%;
-      transform: translateX(-50%) translateY(-50%);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      pointer-events: auto;
-      cursor: pointer;
-      transition: opacity 0.4s, transform 0.3s;
-    }
-
-    .poi-label:hover .poi-card { border-color: var(--cyan); }
-
-    .poi-connector {
-      width: 1px;
-      height: 40px;
-      background: linear-gradient(to bottom, var(--cyan-border), transparent);
-      margin-bottom: 4px;
-    }
-
-    .poi-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--cyan);
-      box-shadow: 0 0 8px var(--cyan), 0 0 16px rgba(0,229,255,0.3);
-      position: absolute;
-      top: 38%;
-      transform: translate(-50%, -50%);
-    }
-
-    .poi-card {
-      background: var(--surface);
-      border: 1px solid var(--cyan-border);
-      border-radius: 10px;
-      padding: 8px 12px;
-      backdrop-filter: blur(12px);
-      min-width: 90px;
-      max-width: 140px;
-      text-align: center;
-      transition: border-color 0.2s;
-    }
-
-    .poi-type-icon {
-      font-size: 14px;
-      margin-bottom: 2px;
-      display: block;
-    }
-
-    .poi-name {
-      font-family: 'Syne', sans-serif;
-      font-weight: 600;
-      font-size: 12px;
-      color: var(--text);
-      line-height: 1.2;
-      word-break: break-word;
-    }
-
-    .poi-distance {
-      font-family: 'Space Mono', monospace;
-      font-size: 9px;
-      color: var(--cyan);
-      margin-top: 3px;
-      letter-spacing: 0.08em;
-    }
-
-    /* fade by angular distance from center */
-    .poi-label[data-fade="1"] { opacity: 0.85; }
-    .poi-label[data-fade="2"] { opacity: 0.6; }
-    .poi-label[data-fade="3"] { opacity: 0.35; }
-
-    /* Vertical stagger to avoid overlap */
-    .poi-label:nth-child(2n) { top: 32%; }
-    .poi-label:nth-child(3n) { top: 45%; }
-
-    /* ── BOTTOM HUD ── */
-    #bottom-hud {
-      position: fixed;
-      bottom: 0; left: 0; right: 0;
-      z-index: 20;
-      padding: 12px 20px;
-      padding-bottom: max(12px, env(safe-area-inset-bottom));
-      background: linear-gradient(to top, rgba(2,13,26,0.95), transparent);
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-    }
-
-    #gps-status {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-
-    .status-dot {
-      width: 6px; height: 6px;
-      border-radius: 50%;
-      background: var(--muted);
-      flex-shrink: 0;
-    }
-    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
-    .status-dot.error { background: var(--red); box-shadow: 0 0 6px var(--red); }
-
-    #poi-count {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-    }
-
-    #refresh-btn {
-      font-family: 'Syne', sans-serif;
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--cyan);
-      background: var(--cyan-dim);
-      border: 1px solid var(--cyan-border);
-      border-radius: 20px;
-      padding: 6px 14px;
-      cursor: pointer;
-      letter-spacing: 0.05em;
-      backdrop-filter: blur(8px);
-      transition: background 0.2s;
-    }
-    #refresh-btn:active { background: rgba(0,229,255,0.3); }
-
-    /* ── POI DETAIL PANEL ── */
-    #detail-panel {
-      position: fixed;
-      bottom: 70px;
-      left: 16px; right: 16px;
-      z-index: 30;
-      background: rgba(2,18,34,0.95);
-      border: 1px solid var(--cyan-border);
-      border-radius: 16px;
-      padding: 16px 20px;
-      backdrop-filter: blur(20px);
-      display: none;
-      pointer-events: auto;
-    }
-    #detail-panel.visible { display: block; }
-
-    #detail-close {
-      position: absolute;
-      top: 10px; right: 14px;
-      font-size: 18px;
-      color: var(--muted);
-      cursor: pointer;
-      background: none;
-      border: none;
-      color: var(--muted);
-      font-family: 'Space Mono', monospace;
-    }
-
-    #detail-icon { font-size: 28px; margin-bottom: 6px; }
-    #detail-name {
-      font-size: 20px;
-      font-weight: 800;
-      color: var(--text);
-      margin-bottom: 4px;
-    }
-    #detail-type {
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--cyan);
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      margin-bottom: 10px;
-    }
-    #detail-meta {
-      display: flex;
-      gap: 20px;
-    }
-    .detail-meta-item {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-    }
-    .detail-meta-label {
-      font-family: 'Space Mono', monospace;
-      font-size: 9px;
-      color: var(--muted);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
-    }
-    .detail-meta-value {
-      font-family: 'Space Mono', monospace;
-      font-size: 13px;
-      color: var(--text);
-      font-weight: 700;
-    }
-
-    /* ── STARTUP SCREEN ── */
-    #startup {
-      position: fixed;
-      inset: 0;
-      z-index: 100;
-      background: var(--bg);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 32px;
-      padding: 40px;
-    }
-
-    .startup-logo {
-      font-family: 'Syne', sans-serif;
-      font-size: 48px;
-      font-weight: 800;
-      color: var(--text);
-      letter-spacing: -0.03em;
-      text-align: center;
-      line-height: 1;
-    }
-    .startup-logo span {
-      color: var(--cyan);
-    }
-
-    .startup-subtitle {
-      font-family: 'Space Mono', monospace;
-      font-size: 11px;
-      color: var(--muted);
-      letter-spacing: 0.15em;
-      text-align: center;
-    }
-
-    .startup-perms {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      width: 100%;
-    }
-
-    .perm-item {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(0,229,255,0.05);
-      border: 1px solid var(--cyan-border);
-      border-radius: 12px;
-      padding: 12px 16px;
-      font-size: 13px;
-      color: var(--muted);
-    }
-    .perm-item .perm-icon { font-size: 20px; flex-shrink: 0; }
-    .perm-item .perm-status {
-      margin-left: auto;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--muted);
-    }
-    .perm-item.granted { border-color: rgba(34,211,160,0.4); }
-    .perm-item.granted .perm-status { color: var(--green); }
-
-    #start-btn {
-      width: 100%;
-      background: var(--cyan);
-      color: var(--bg);
-      border: none;
-      border-radius: 14px;
-      padding: 16px;
-      font-family: 'Syne', sans-serif;
-      font-size: 16px;
-      font-weight: 800;
-      cursor: pointer;
-      letter-spacing: 0.05em;
-      transition: opacity 0.2s;
-    }
-    #start-btn:active { opacity: 0.8; }
-
-    /* ── LOADING ── */
-    #loading-ring {
-      position: fixed;
-      top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 25;
-      display: none;
-    }
-    #loading-ring.visible { display: block; }
-    #loading-ring svg { animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    /* ── COMPASS CALIBRATION WARNING ── */
-    #compass-warning {
-      position: fixed;
-      top: 110px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 25;
-      background: rgba(251,191,36,0.15);
-      border: 1px solid rgba(251,191,36,0.5);
-      border-radius: 20px;
-      padding: 6px 16px;
-      font-family: 'Space Mono', monospace;
-      font-size: 10px;
-      color: var(--gold);
-      letter-spacing: 0.05em;
-      pointer-events: none;
-      display: none;
-    }
-
-    /* grid overlay lines (subtle) */
     .grid-line-h, .grid-line-v {
-      position: absolute;
-      background: rgba(0,229,255,0.04);
-      pointer-events: none;
+      position: absolute; background: rgba(0,229,255,0.04); pointer-events: none;
     }
     .grid-line-h { left: 0; right: 0; height: 1px; top: 33%; }
     .grid-line-h:nth-child(2) { top: 66%; }
     .grid-line-v { top: 0; bottom: 0; width: 1px; left: 33%; }
     .grid-line-v:nth-child(4) { left: 66%; }
 
-    /* center crosshair */
     .crosshair-h {
-      position: absolute;
-      top: 50%; left: calc(50% - 20px);
+      position: absolute; top: 50%; left: calc(50% - 20px);
       width: 40px; height: 1px;
-      background: rgba(0,229,255,0.3);
-      transform: translateY(-50%);
+      background: rgba(0,229,255,0.35); transform: translateY(-50%);
     }
     .crosshair-v {
-      position: absolute;
-      left: 50%; top: calc(50% - 20px);
+      position: absolute; left: 50%; top: calc(50% - 20px);
       width: 1px; height: 40px;
-      background: rgba(0,229,255,0.3);
+      background: rgba(0,229,255,0.35); transform: translateX(-50%);
+    }
+
+    /* ── COMPASS BAR ── */
+    #compass-bar {
+      position: fixed; top: 0; left: 0; right: 0;
+      z-index: 20; height: 52px;
+      background: linear-gradient(to bottom, rgba(2,13,26,0.92), transparent);
+      pointer-events: none; overflow: hidden;
+    }
+    #compass-track {
+      position: relative; width: 100%; height: 52px;
+      display: flex; align-items: center; overflow: hidden;
+    }
+    .compass-label {
+      position: absolute; top: 50%;
+      transform: translateX(-50%) translateY(-50%);
+      font-family: 'Space Mono', monospace;
+      font-size: 10px; color: var(--muted); letter-spacing: 0.05em;
+    }
+    .compass-label.cardinal { font-size: 12px; font-weight: 700; color: var(--cyan); }
+    #compass-center {
+      position: absolute; left: 50%; top: 0; bottom: 0;
+      width: 1px; background: var(--cyan);
+      transform: translateX(-50%); z-index: 2;
+    }
+    #compass-center::before {
+      content: ''; position: absolute; bottom: 0; left: 50%;
       transform: translateX(-50%);
+      width: 5px; height: 5px; background: var(--cyan); border-radius: 50%;
+    }
+
+    /* ── HEADING ── */
+    #heading-display {
+      position: fixed; top: 56px; left: 50%; transform: translateX(-50%);
+      z-index: 20;
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      color: var(--cyan); background: var(--surface);
+      border: 1px solid var(--cyan-border); border-radius: 20px;
+      padding: 4px 14px; letter-spacing: 0.1em;
+      backdrop-filter: blur(10px); pointer-events: none;
+    }
+
+    /* ── POI LABELS ── */
+    .poi-label {
+      position: absolute;
+      transform: translateX(-50%) translateY(-50%);
+      display: flex; flex-direction: column; align-items: center;
+      pointer-events: auto; cursor: pointer;
+      transition: opacity 0.35s;
+    }
+    .poi-connector {
+      width: 1px; height: 36px;
+      background: linear-gradient(to bottom, var(--cyan-border), transparent);
+      margin-bottom: 4px;
+    }
+    .poi-card {
+      background: var(--surface);
+      border: 1px solid var(--cyan-border);
+      border-radius: 10px; padding: 7px 11px;
+      backdrop-filter: blur(14px);
+      min-width: 85px; max-width: 130px;
+      text-align: center; transition: border-color 0.15s;
+    }
+    .poi-label:active .poi-card { border-color: var(--cyan); }
+    .poi-type-icon { font-size: 13px; margin-bottom: 2px; display: block; }
+    .poi-name {
+      font-family: 'Syne', sans-serif; font-weight: 600;
+      font-size: 11px; color: var(--text); line-height: 1.25;
+    }
+    .poi-distance {
+      font-family: 'Space Mono', monospace; font-size: 9px;
+      color: var(--cyan); margin-top: 3px; letter-spacing: 0.06em;
+    }
+    .poi-label[data-fade="1"] { opacity: 0.9; }
+    .poi-label[data-fade="2"] { opacity: 0.6; }
+    .poi-label[data-fade="3"] { opacity: 0.3; }
+
+    /* ── DISTANCE FILTER BAR ── */
+    #dist-filter {
+      position: fixed;
+      bottom: 52px; left: 0; right: 0;
+      z-index: 21;
+      padding: 5px 12px;
+      display: flex; gap: 5px;
+      overflow-x: auto; -webkit-overflow-scrolling: touch;
+      scrollbar-width: none;
+      pointer-events: auto;
+      background: linear-gradient(to top, rgba(2,13,26,0.7), transparent);
+    }
+    #dist-filter::-webkit-scrollbar { display: none; }
+
+    .dist-pill {
+      flex-shrink: 0;
+      font-family: 'Space Mono', monospace; font-size: 10px;
+      letter-spacing: 0.04em;
+      padding: 4px 10px; border-radius: 20px;
+      border: 1px solid rgba(0,229,255,0.18);
+      background: rgba(2,13,26,0.55);
+      color: var(--muted); cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: all 0.15s;
+    }
+    .dist-pill:active { transform: scale(0.93); }
+    .dist-pill.active {
+      border-color: var(--cyan);
+      background: var(--cyan-dim);
+      color: var(--cyan);
+    }
+
+    /* ── BOTTOM HUD ── */
+    #bottom-hud {
+      position: fixed; bottom: 0; left: 0; right: 0;
+      z-index: 20; padding: 6px 14px;
+      padding-bottom: max(6px, env(safe-area-inset-bottom));
+      background: rgba(2,13,26,0.88);
+      display: flex; align-items: center;
+      justify-content: space-between; gap: 8px;
+    }
+    #gps-status {
+      font-family: 'Space Mono', monospace; font-size: 9px;
+      color: var(--muted); display: flex; align-items: center; gap: 5px;
+      flex: 1; min-width: 0; overflow: hidden;
+    }
+    #gps-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .status-dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--muted); flex-shrink: 0;
+    }
+    .status-dot.active { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .status-dot.error   { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+
+    #poi-count {
+      font-family: 'Space Mono', monospace; font-size: 9px;
+      color: var(--muted); white-space: nowrap; flex-shrink: 0;
+    }
+    #refresh-btn {
+      font-family: 'Space Mono', monospace; font-size: 12px;
+      color: var(--cyan); background: var(--cyan-dim);
+      border: 1px solid var(--cyan-border); border-radius: 16px;
+      padding: 4px 12px; cursor: pointer;
+      backdrop-filter: blur(8px); transition: background 0.15s; flex-shrink: 0;
+    }
+    #refresh-btn:active { background: rgba(0,229,255,0.3); }
+
+    /* ── DETAIL PANEL ── */
+    #detail-panel {
+      position: fixed; bottom: 100px; left: 14px; right: 14px;
+      z-index: 30; background: rgba(2,18,34,0.96);
+      border: 1px solid var(--cyan-border); border-radius: 16px;
+      padding: 16px 18px; backdrop-filter: blur(20px);
+      display: none; pointer-events: auto;
+    }
+    #detail-panel.visible { display: block; }
+    #detail-close {
+      position: absolute; top: 10px; right: 14px;
+      font-family: 'Space Mono', monospace; font-size: 16px;
+      background: none; border: none; color: var(--muted); cursor: pointer;
+    }
+    #detail-icon { font-size: 26px; margin-bottom: 5px; }
+    #detail-name { font-size: 19px; font-weight: 800; color: var(--text); margin-bottom: 3px; }
+    #detail-type {
+      font-family: 'Space Mono', monospace; font-size: 10px;
+      color: var(--cyan); letter-spacing: 0.1em;
+      text-transform: uppercase; margin-bottom: 10px;
+    }
+    #detail-meta { display: flex; gap: 16px; flex-wrap: wrap; }
+    .detail-meta-item { display: flex; flex-direction: column; gap: 2px; }
+    .detail-meta-label {
+      font-family: 'Space Mono', monospace; font-size: 9px;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+    }
+    .detail-meta-value {
+      font-family: 'Space Mono', monospace; font-size: 13px;
+      color: var(--text); font-weight: 700;
+    }
+
+    /* ── STARTUP ── */
+    #startup {
+      position: fixed; inset: 0; z-index: 100;
+      background: var(--bg);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 24px; padding: 36px;
+      overflow-y: auto;
+    }
+    .startup-logo {
+      font-family: 'Syne', sans-serif; font-size: 48px; font-weight: 800;
+      color: var(--text); letter-spacing: -0.03em; line-height: 1;
+    }
+    .startup-logo span { color: var(--cyan); }
+    .startup-subtitle {
+      font-family: 'Space Mono', monospace; font-size: 11px;
+      color: var(--muted); letter-spacing: 0.15em; text-align: center;
+    }
+    .startup-perms { display: flex; flex-direction: column; gap: 8px; width: 100%; }
+
+    .perm-item {
+      display: flex; align-items: center; gap: 12px;
+      background: rgba(0,229,255,0.05); border: 1px solid var(--cyan-border);
+      border-radius: 12px; padding: 11px 14px; font-size: 13px; color: var(--muted);
+    }
+    .perm-item .perm-icon { font-size: 20px; flex-shrink: 0; }
+    .perm-item .perm-status {
+      margin-left: auto; font-family: 'Space Mono', monospace;
+      font-size: 10px; color: var(--muted);
+    }
+    .perm-item.ok     { border-color: rgba(34,211,160,0.45); }
+    .perm-item.ok .perm-status { color: var(--green); }
+    .perm-item.denied { border-color: rgba(255,77,109,0.45); }
+    .perm-item.denied .perm-status { color: var(--red); }
+
+    /* GPS error help */
+    #gps-help {
+      display: none; width: 100%;
+      background: rgba(255,77,109,0.07);
+      border: 1px solid rgba(255,77,109,0.3);
+      border-radius: 12px; padding: 14px 16px;
+    }
+    #gps-help.visible { display: block; }
+    #gps-help-title {
+      font-weight: 700; font-size: 13px; color: var(--red); margin-bottom: 8px;
+    }
+    #gps-help-body {
+      font-family: 'Space Mono', monospace; font-size: 10px;
+      color: var(--muted); line-height: 1.9; white-space: pre-line;
+    }
+    #gps-retry-btn {
+      margin-top: 10px; width: 100%;
+      background: rgba(255,77,109,0.12);
+      border: 1px solid rgba(255,77,109,0.4);
+      border-radius: 10px; padding: 9px;
+      font-family: 'Syne', sans-serif; font-size: 13px; font-weight: 700;
+      color: var(--red); cursor: pointer; transition: background 0.15s;
+    }
+    #gps-retry-btn:active { background: rgba(255,77,109,0.28); }
+
+    #start-btn {
+      width: 100%; background: var(--cyan); color: var(--bg);
+      border: none; border-radius: 14px; padding: 15px;
+      font-family: 'Syne', sans-serif; font-size: 16px; font-weight: 800;
+      cursor: pointer; letter-spacing: 0.05em; transition: opacity 0.2s;
+    }
+    #start-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    #start-btn:not(:disabled):active { opacity: 0.8; }
+
+    /* ── LOADING ── */
+    #loading-ring {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%); z-index: 25; display: none;
+    }
+    #loading-ring.on { display: block; }
+    #loading-ring svg { animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #compass-warning {
+      position: fixed; top: 108px; left: 50%; transform: translateX(-50%);
+      z-index: 25; background: rgba(251,191,36,0.13);
+      border: 1px solid rgba(251,191,36,0.45); border-radius: 20px;
+      padding: 5px 14px; font-family: 'Space Mono', monospace;
+      font-size: 10px; color: var(--gold); pointer-events: auto; cursor: pointer; display: none;
     }
   </style>
 </head>
 <body>
 
-<!-- ═══════════════════════════════════════════
-     STARTUP SCREEN
-═══════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════
+     STARTUP
+══════════════════════════════════════ -->
 <div id="startup">
-  <div>
+  <div style="text-align:center">
     <div class="startup-logo">HORI<span>ZON</span></div>
-    <div class="startup-subtitle">CE QUI EST DEVANT VOUS</div>
+    <div class="startup-subtitle" style="margin-top:6px">CE QUI EST DEVANT VOUS</div>
   </div>
 
   <div class="startup-perms">
@@ -529,71 +370,71 @@
     </div>
   </div>
 
+  <!-- GPS help block (shown on error) -->
+  <div id="gps-help">
+    <div id="gps-help-title">⚠ Localisation refusée</div>
+    <div id="gps-help-body"></div>
+    <button id="gps-retry-btn" onclick="retryGPS()">↺ Réessayer</button>
+  </div>
+
   <button id="start-btn" onclick="initApp()">Démarrer</button>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     CAMERA FEED
-═══════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════
+     CAMERA + OVERLAYS
+══════════════════════════════════════ -->
 <video id="camera-feed" autoplay playsinline muted></video>
-
-<!-- ═══════════════════════════════════════════
-     VISUAL OVERLAYS
-═══════════════════════════════════════════ -->
 <div class="vignette"></div>
 
 <div id="ar-overlay">
-  <!-- Grid -->
   <div class="grid-line-h"></div>
   <div class="grid-line-h"></div>
   <div class="grid-line-v"></div>
   <div class="grid-line-v"></div>
-  <!-- Crosshair -->
   <div class="crosshair-h"></div>
   <div class="crosshair-v"></div>
-  <!-- Horizon line -->
   <div class="horizon-line"></div>
-  <!-- POI container -->
   <div id="poi-container"></div>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     COMPASS BAR
-═══════════════════════════════════════════ -->
+<!-- ══════════════════════════════════════
+     COMPASS + HEADING
+══════════════════════════════════════ -->
 <div id="compass-bar">
   <div id="compass-track">
     <div id="compass-center"></div>
   </div>
 </div>
 <div id="heading-display">---° N</div>
-<div id="compass-warning">⚠ Calibrez la boussole — tournez en 8</div>
+<div id="compass-warning" onclick="hideCompassWarning()" title="Toucher pour fermer">⚠ Calibrez la boussole — tournez en 8 &nbsp; ✕</div>
 
-<!-- ═══════════════════════════════════════════
+<!-- ══════════════════════════════════════
+     DISTANCE FILTER
+══════════════════════════════════════ -->
+<div id="dist-filter"></div>
+
+<!-- ══════════════════════════════════════
      BOTTOM HUD
-═══════════════════════════════════════════ -->
+══════════════════════════════════════ -->
 <div id="bottom-hud">
   <div id="gps-status">
     <div class="status-dot" id="gps-dot"></div>
     <span id="gps-text">GPS inactif</span>
   </div>
-  <div id="poi-count">— points détectés</div>
-  <button id="refresh-btn" onclick="refreshPOIs()">↻ Rafraîchir</button>
+  <div id="poi-count">— pts</div>
+  <button id="refresh-btn" onclick="refreshPOIs()">↻</button>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     LOADING
-═══════════════════════════════════════════ -->
+<!-- LOADING -->
 <div id="loading-ring">
-  <svg width="36" height="36" viewBox="0 0 36 36">
-    <circle cx="18" cy="18" r="14" fill="none" stroke="rgba(0,229,255,0.15)" stroke-width="3"/>
-    <circle cx="18" cy="18" r="14" fill="none" stroke="#00e5ff" stroke-width="3"
-      stroke-dasharray="20 68" stroke-linecap="round"/>
+  <svg width="38" height="38" viewBox="0 0 38 38">
+    <circle cx="19" cy="19" r="15" fill="none" stroke="rgba(0,229,255,0.12)" stroke-width="3"/>
+    <circle cx="19" cy="19" r="15" fill="none" stroke="#00e5ff" stroke-width="3"
+      stroke-dasharray="22 72" stroke-linecap="round"/>
   </svg>
 </div>
 
-<!-- ═══════════════════════════════════════════
-     DETAIL PANEL
-═══════════════════════════════════════════ -->
+<!-- DETAIL PANEL -->
 <div id="detail-panel">
   <button id="detail-close" onclick="closeDetail()">✕</button>
   <div id="detail-icon">📍</div>
@@ -616,32 +457,86 @@
 </div>
 
 <script>
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  CONFIG DISTANCES
+// ══════════════════════════════════════════════
+const DISTANCES = [
+  { label: '500m',  value: 500 },
+  { label: '1km',   value: 1000 },
+  { label: '2km',   value: 2000 },
+  { label: '5km',   value: 5000 },
+  { label: '10km',  value: 10000 },
+  { label: '25km',  value: 25000 },
+  { label: '50km',  value: 50000 },
+];
+
+// ══════════════════════════════════════════════
 //  STATE
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 const state = {
-  userLat: null,
-  userLng: null,
-  heading: null,       // degrees 0-360, 0=North
-  headingRaw: null,
-  pois: [],
-  compassSource: null, // 'ios' | 'absolute' | 'relative'
-  compassReady: false,
+  userLat: null, userLng: null,
+  heading: null,
+  allPois: [],   // all POIs from last fetch (up to 50km)
+  pois: [],      // filtered by current maxDist
+  compassSource: null,
   gpsReady: false,
-  lastFetchLat: null,
-  lastFetchLng: null,
-  animFrame: null,
+  lastFetchLat: null, lastFetchLng: null,
+  maxDist: 50000,   // default: 50km
 };
 
-const FOV = 75; // horizontal field of view in degrees
+const FOV = 75;
 const FOV_HALF = FOV / 2;
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  DISTANCE FILTER
+// ══════════════════════════════════════════════
+function buildDistFilter() {
+  const bar = document.getElementById('dist-filter');
+  bar.innerHTML = '';
+  DISTANCES.forEach(d => {
+    const btn = document.createElement('button');
+    btn.className = 'dist-pill' + (d.value === state.maxDist ? ' active' : '');
+    btn.textContent = d.label;
+    btn.addEventListener('click', () => selectDist(d.value));
+    bar.appendChild(btn);
+  });
+}
+
+function selectDist(m) {
+  state.maxDist = m;
+  document.querySelectorAll('.dist-pill').forEach((btn, i) => {
+    btn.classList.toggle('active', DISTANCES[i].value === m);
+  });
+  // If we need data beyond what we have, re-fetch; otherwise just re-filter
+  const needFetch = !state.lastFetchLat || m > 50000;
+  if (needFetch) {
+    state.lastFetchLat = null;
+    if (state.gpsReady) fetchPOIs();
+  } else {
+    applyFilter();
+  }
+}
+
+function applyFilter() {
+  state.pois = state.allPois.filter(p => p.dist <= state.maxDist);
+  // Clear rendered labels
+  poiElements.forEach(el => el.remove());
+  poiElements.clear();
+  updatePoiCount();
+}
+
+function updatePoiCount() {
+  document.getElementById('poi-count').textContent =
+    `${state.pois.length} pt${state.pois.length !== 1 ? 's' : ''}`;
+}
+
+// ══════════════════════════════════════════════
 //  INIT
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 async function initApp() {
-  document.getElementById('start-btn').disabled = true;
-  document.getElementById('start-btn').textContent = 'Initialisation…';
+  const btn = document.getElementById('start-btn');
+  btn.disabled = true;
+  btn.textContent = 'Initialisation…';
 
   // 1. Camera
   try {
@@ -650,422 +545,423 @@ async function initApp() {
       audio: false
     });
     document.getElementById('camera-feed').srcObject = stream;
-    setPermStatus('camera', true);
-  } catch (e) {
-    setPermStatus('camera', false);
+    setPermStatus('camera', 'ok');
+  } catch(e) {
+    setPermStatus('camera', 'denied');
     alert('Caméra non disponible : ' + e.message);
-    document.getElementById('start-btn').disabled = false;
-    document.getElementById('start-btn').textContent = 'Démarrer';
+    btn.disabled = false; btn.textContent = 'Démarrer';
     return;
   }
 
-  // 2. Geolocation
+  // 2. GPS
   if (!navigator.geolocation) {
-    setPermStatus('gps', false);
+    setPermStatus('gps', 'denied');
+    showGPSHelp('not_supported');
   } else {
-    setPermStatus('gps', true, 'ACTIF');
-    navigator.geolocation.watchPosition(onGPS, onGPSError, {
-      enableHighAccuracy: true, maximumAge: 5000, timeout: 15000
-    });
+    setPermStatus('gps', 'waiting');
+    startGPS();
   }
 
-  // 3. Compass — iOS needs permission request
+  // 3. Compass
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof DeviceOrientationEvent.requestPermission === 'function') {
     try {
-      const perm = await DeviceOrientationEvent.requestPermission();
-      if (perm === 'granted') {
+      const p = await DeviceOrientationEvent.requestPermission();
+      if (p === 'granted') {
         window.addEventListener('deviceorientation', onOrientation, true);
-        setPermStatus('compass', true);
+        setPermStatus('compass', 'ok');
       } else {
-        setPermStatus('compass', false);
+        setPermStatus('compass', 'denied');
       }
-    } catch (e) {
-      setPermStatus('compass', false);
-    }
+    } catch(e) { setPermStatus('compass', 'denied'); }
   } else {
-    // Android / desktop
     window.addEventListener('deviceorientationabsolute', onOrientationAbsolute, true);
     window.addEventListener('deviceorientation', onOrientation, true);
-    setPermStatus('compass', true, 'ACTIF');
+    setPermStatus('compass', 'ok');
   }
 
-  // Hide startup, show app
-  document.getElementById('startup').style.transition = 'opacity 0.6s';
-  document.getElementById('startup').style.opacity = '0';
-  setTimeout(() => document.getElementById('startup').style.display = 'none', 600);
+  buildDistFilter();
 
-  // Start render loop
+  // Fade out startup
+  const startup = document.getElementById('startup');
+  startup.style.transition = 'opacity 0.5s';
+  startup.style.opacity = '0';
+  setTimeout(() => startup.style.display = 'none', 500);
+
   renderLoop();
 }
 
-function setPermStatus(perm, ok, label) {
-  const el = document.getElementById('perm-' + perm);
-  const status = el.querySelector('.perm-status');
-  if (ok) {
-    el.classList.add('granted');
-    status.textContent = label || 'OK';
-  } else {
-    status.textContent = 'REFUSÉ';
-    status.style.color = 'var(--red)';
-  }
+// ── GPS ──────────────────────────────────────
+function startGPS() {
+  navigator.geolocation.getCurrentPosition(
+    pos => {
+      onGPS(pos);
+      setPermStatus('gps', 'ok');
+      // Keep watching
+      navigator.geolocation.watchPosition(onGPS, onGPSWatchError, {
+        enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
+      });
+    },
+    err => {
+      setPermStatus('gps', 'denied');
+      showGPSHelp(err.code);
+      document.getElementById('gps-dot').classList.add('error');
+      document.getElementById('gps-text').textContent = gpsErrMsg(err.code);
+    },
+    { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 }
+  );
 }
 
-// ═══════════════════════════════════════════════
-//  GEOLOCATION
-// ═══════════════════════════════════════════════
+function retryGPS() {
+  document.getElementById('gps-help').classList.remove('visible');
+  setPermStatus('gps', 'waiting');
+  startGPS();
+}
+
 function onGPS(pos) {
   state.userLat = pos.coords.latitude;
   state.userLng = pos.coords.longitude;
   state.gpsReady = true;
-
+  document.getElementById('gps-dot').classList.remove('error');
   document.getElementById('gps-dot').classList.add('active');
   const acc = Math.round(pos.coords.accuracy);
   document.getElementById('gps-text').textContent =
     `${state.userLat.toFixed(5)}, ${state.userLng.toFixed(5)} ±${acc}m`;
-
-  // Fetch POIs if moved more than 200m or first time
-  const d = state.lastFetchLat !== null
+  const moved = state.lastFetchLat !== null
     ? haversine(state.userLat, state.userLng, state.lastFetchLat, state.lastFetchLng)
     : Infinity;
-  if (d > 200) fetchPOIs();
+  if (moved > 200) fetchPOIs();
 }
 
-function onGPSError(err) {
+function onGPSWatchError(err) {
+  document.getElementById('gps-dot').classList.remove('active');
   document.getElementById('gps-dot').classList.add('error');
-  document.getElementById('gps-text').textContent = 'Erreur GPS: ' + err.message;
+  document.getElementById('gps-text').textContent = gpsErrMsg(err.code);
 }
 
-// ═══════════════════════════════════════════════
-//  COMPASS
-// ═══════════════════════════════════════════════
+function gpsErrMsg(code) {
+  return { 1: 'GPS refusé', 2: 'GPS indisponible', 3: 'GPS : délai dépassé' }[code] || 'Erreur GPS';
+}
+
+function showGPSHelp(code) {
+  const panel = document.getElementById('gps-help');
+  const body  = document.getElementById('gps-help-body');
+  const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const isAndroid = /Android/.test(navigator.userAgent);
+
+  let msg = '';
+  if (code === 1 || code === 'denied') {
+    if (isIOS) {
+      msg =
+        '1. Ferme Safari complètement\n' +
+        '2. Réglages → Confidentialité & Sécurité\n' +
+        '   → Service de localisation\n' +
+        '3. Cherche Safari → sélectionne\n' +
+        '   « Lors de l\'utilisation de l\'app »\n' +
+        '4. Reviens ici → appuie sur Réessayer';
+    } else if (isAndroid) {
+      msg =
+        '1. Appuie sur 🔒 dans la barre d\'adresse\n' +
+        '2. Autorisations → Localisation\n' +
+        '   → sélectionne « Autoriser »\n' +
+        '3. Recharge la page → Réessayer';
+    } else {
+      msg = 'Autorise la localisation dans\nles paramètres de ton navigateur,\npuis appuie sur Réessayer.';
+    }
+  } else if (code === 2) {
+    msg = 'Signal GPS indisponible.\nVérifie que le GPS est activé\nsur ton appareil, puis Réessayer.';
+  } else if (code === 3) {
+    msg = 'Délai dépassé. Va en extérieur\net assure-toi que le GPS est actif,\npuis Réessayer.';
+  } else {
+    msg = 'GPS non supporté par ce navigateur.\nEssaie avec Chrome ou Safari.';
+  }
+  body.textContent = msg;
+  panel.classList.add('visible');
+}
+
+function setPermStatus(perm, status) {
+  const el = document.getElementById('perm-' + perm);
+  const st = el.querySelector('.perm-status');
+  el.classList.remove('ok', 'denied');
+  if (status === 'ok') {
+    el.classList.add('ok'); st.textContent = 'OK';
+  } else if (status === 'denied') {
+    el.classList.add('denied'); st.textContent = 'REFUSÉ';
+  } else {
+    st.textContent = 'EN ATTENTE…';
+  }
+}
+
+// ── Compass ──────────────────────────────────
 function onOrientationAbsolute(e) {
   if (e.alpha === null) return;
-  // alpha=0 means pointing North (when absolute)
   state.heading = (360 - e.alpha + 360) % 360;
   state.compassSource = 'absolute';
-  state.compassReady = true;
 }
+let relativeWarningTimer = null;
 
 function onOrientation(e) {
-  if (state.compassSource === 'absolute') return; // prefer absolute
-
-  // iOS: webkitCompassHeading = degrees clockwise from magnetic north
-  if (e.webkitCompassHeading !== undefined && e.webkitCompassHeading !== null) {
-    state.heading = e.webkitCompassHeading;
-    state.compassSource = 'ios';
-    state.compassReady = true;
+  if (state.compassSource === 'absolute') {
+    hideCompassWarning();
     return;
   }
-
-  // Android fallback using alpha (not north-referenced without absolute)
+  if (e.webkitCompassHeading != null) {
+    state.heading = e.webkitCompassHeading;
+    state.compassSource = 'ios';
+    hideCompassWarning();
+    return;
+  }
   if (e.alpha !== null) {
     state.heading = (360 - e.alpha + 360) % 360;
-    state.compassSource = 'relative';
-    state.compassReady = true;
-    document.getElementById('compass-warning').style.display = 'block';
+    if (!state.compassSource) {
+      state.compassSource = 'relative';
+      // Wait 4s before showing warning — absolute source may still kick in
+      if (!relativeWarningTimer) {
+        relativeWarningTimer = setTimeout(() => {
+          if (state.compassSource === 'relative') {
+            const w = document.getElementById('compass-warning');
+            w.style.display = 'block';
+            // Auto-hide after 8s
+            setTimeout(() => { w.style.display = 'none'; }, 8000);
+          }
+        }, 4000);
+      }
+    }
   }
 }
 
-// ═══════════════════════════════════════════════
-//  FETCH POIs via Overpass API
-// ═══════════════════════════════════════════════
+function hideCompassWarning() {
+  if (relativeWarningTimer) { clearTimeout(relativeWarningTimer); relativeWarningTimer = null; }
+  document.getElementById('compass-warning').style.display = 'none';
+}
+
+// ══════════════════════════════════════════════
+//  FETCH POIs — always fetches 50km max radius
+// ══════════════════════════════════════════════
 async function fetchPOIs() {
   if (!state.userLat) return;
-  document.getElementById('loading-ring').classList.add('visible');
+  document.getElementById('loading-ring').classList.add('on');
 
-  const lat = state.userLat;
-  const lng = state.userLng;
-  const radius = 50000; // 50km
+  const lat = state.userLat, lng = state.userLng;
+  const radius = 50000; // always fetch max, filter client-side
 
   const query = `
 [out:json][timeout:25];
 (
-  node["place"~"^(island|islet|city|town|village|hamlet|suburb|quarter)$"](around:${radius},${lat},${lng});
+  node["place"~"^(island|islet|city|town|village|hamlet|suburb)$"](around:${radius},${lat},${lng});
   node["natural"~"^(peak|volcano|cliff|cape|bay|strait)$"](around:${radius},${lat},${lng});
   node["man_made"="lighthouse"](around:${radius},${lat},${lng});
   way["place"~"^(island|islet)$"](around:${radius},${lat},${lng});
   relation["place"~"^(island|islet)$"](around:${radius},${lat},${lng});
 );
-out center 200;
+out center 300;
   `.trim();
 
   try {
     const resp = await fetch('https://overpass-api.de/api/interpreter', {
-      method: 'POST',
-      body: query
+      method: 'POST', body: query
     });
     const data = await resp.json();
     processPOIs(data.elements, lat, lng);
     state.lastFetchLat = lat;
     state.lastFetchLng = lng;
-  } catch (e) {
-    console.warn('Overpass error, trying fallback…', e);
-    // Fallback: nominatim reverse for nearby places
-    await fetchNominatimFallback(lat, lng);
+  } catch(e) {
+    console.warn('Overpass error:', e);
+    document.getElementById('poi-count').textContent = 'Erreur réseau';
   } finally {
-    document.getElementById('loading-ring').classList.remove('visible');
+    document.getElementById('loading-ring').classList.remove('on');
   }
-}
-
-async function fetchNominatimFallback(lat, lng) {
-  try {
-    const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1&zoom=10`;
-    const resp = await fetch(url, { headers: { 'Accept-Language': 'fr' } });
-    const data = await resp.json();
-    // Provide at least a location name
-    if (data && data.display_name) {
-      document.getElementById('gps-text').textContent =
-        data.address?.city || data.address?.town || data.address?.village || data.display_name;
-    }
-  } catch(e) { console.warn(e); }
 }
 
 function processPOIs(elements, userLat, userLng) {
-  const seen = new Set();
-  const results = [];
-
+  const seen = new Set(), results = [];
   for (const el of elements) {
-    const elLat = el.lat ?? el.center?.lat;
-    const elLng = el.lon ?? el.center?.lon;
-    if (!elLat || !elLng) continue;
-
+    const eLat = el.lat ?? el.center?.lat;
+    const eLng = el.lon ?? el.center?.lon;
+    if (!eLat || !eLng) continue;
     const name = el.tags?.name || el.tags?.['name:fr'];
-    if (!name) continue;
-    if (seen.has(name)) continue;
+    if (!name || seen.has(name)) continue;
     seen.add(name);
-
-    const dist = haversine(userLat, userLng, elLat, elLng);
-    if (dist < 50) continue; // skip if too close (user is there)
-
-    const bearing = calcBearing(userLat, userLng, elLat, elLng);
-    const type = classifyPOI(el.tags);
-
-    results.push({ name, lat: elLat, lng: elLng, dist, bearing, type, tags: el.tags });
+    const dist = haversine(userLat, userLng, eLat, eLng);
+    if (dist < 50) continue;
+    results.push({
+      name, lat: eLat, lng: eLng, dist,
+      bearing: calcBearing(userLat, userLng, eLat, eLng),
+      type: classifyPOI(el.tags)
+    });
   }
-
-  // Sort by distance, keep best 60
   results.sort((a, b) => a.dist - b.dist);
-  state.pois = results.slice(0, 60);
-  document.getElementById('poi-count').textContent =
-    `${state.pois.length} point${state.pois.length > 1 ? 's' : ''} détecté${state.pois.length > 1 ? 's' : ''}`;
+  state.allPois = results.slice(0, 300);
+  applyFilter();
 }
 
 function classifyPOI(tags) {
   if (!tags) return { emoji: '📍', label: 'Lieu' };
-  const place = tags.place;
-  const natural = tags.natural;
-  const manMade = tags.man_made;
-
-  if (place === 'island' || place === 'islet') return { emoji: '🏝️', label: 'Île' };
-  if (natural === 'peak' || natural === 'volcano') return { emoji: '⛰️', label: 'Sommet' };
-  if (natural === 'cape') return { emoji: '🗺️', label: 'Cap' };
-  if (natural === 'bay') return { emoji: '🌊', label: 'Baie' };
-  if (natural === 'strait') return { emoji: '〰️', label: 'Détroit' };
-  if (natural === 'cliff') return { emoji: '🪨', label: 'Falaise' };
-  if (manMade === 'lighthouse') return { emoji: '🗼', label: 'Phare' };
-  if (place === 'city') return { emoji: '🏙️', label: 'Ville' };
-  if (place === 'town') return { emoji: '🏘️', label: 'Bourg' };
-  if (place === 'village' || place === 'hamlet') return { emoji: '🏡', label: 'Village' };
+  const p = tags.place, n = tags.natural, m = tags.man_made;
+  if (p === 'island' || p === 'islet')   return { emoji: '🏝️', label: 'Île' };
+  if (n === 'peak' || n === 'volcano')   return { emoji: '⛰️', label: 'Sommet' };
+  if (n === 'cape')                      return { emoji: '🗺️', label: 'Cap' };
+  if (n === 'bay')                       return { emoji: '🌊', label: 'Baie' };
+  if (n === 'strait')                    return { emoji: '〰️', label: 'Détroit' };
+  if (n === 'cliff')                     return { emoji: '🪨', label: 'Falaise' };
+  if (m === 'lighthouse')                return { emoji: '🗼', label: 'Phare' };
+  if (p === 'city')                      return { emoji: '🏙️', label: 'Ville' };
+  if (p === 'town')                      return { emoji: '🏘️', label: 'Bourg' };
+  if (p === 'village' || p === 'hamlet') return { emoji: '🏡', label: 'Village' };
   return { emoji: '📍', label: 'Lieu' };
 }
 
 function refreshPOIs() {
   state.lastFetchLat = null;
-  state.lastFetchLng = null;
   if (state.gpsReady) fetchPOIs();
 }
 
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
 //  RENDER LOOP
-// ═══════════════════════════════════════════════
-function renderLoop() {
-  updateCompassBar();
-  updatePOILabels();
-  updateHeadingDisplay();
-  state.animFrame = requestAnimationFrame(renderLoop);
-}
-
-// ── Compass bar ──────────────────────────────
+// ══════════════════════════════════════════════
 const COMPASS_POINTS = [
-  { deg: 0, label: 'N' }, { deg: 22.5, label: 'NNE' },
-  { deg: 45, label: 'NE' }, { deg: 67.5, label: 'ENE' },
-  { deg: 90, label: 'E' }, { deg: 112.5, label: 'ESE' },
-  { deg: 135, label: 'SE' }, { deg: 157.5, label: 'SSE' },
-  { deg: 180, label: 'S' }, { deg: 202.5, label: 'SSO' },
-  { deg: 225, label: 'SO' }, { deg: 247.5, label: 'OSO' },
-  { deg: 270, label: 'O' }, { deg: 292.5, label: 'ONO' },
-  { deg: 315, label: 'NO' }, { deg: 337.5, label: 'NNO' },
+  { deg:   0, label:'N'   }, { deg:  22.5, label:'NNE' },
+  { deg:  45, label:'NE'  }, { deg:  67.5, label:'ENE' },
+  { deg:  90, label:'E'   }, { deg: 112.5, label:'ESE' },
+  { deg: 135, label:'SE'  }, { deg: 157.5, label:'SSE' },
+  { deg: 180, label:'S'   }, { deg: 202.5, label:'SSO' },
+  { deg: 225, label:'SO'  }, { deg: 247.5, label:'OSO' },
+  { deg: 270, label:'O'   }, { deg: 292.5, label:'ONO' },
+  { deg: 315, label:'NO'  }, { deg: 337.5, label:'NNO' },
 ];
+let compassBuilt = false;
 
-let compassLabelsBuilt = false;
-function buildCompassLabels() {
-  const track = document.getElementById('compass-track');
-  COMPASS_POINTS.forEach(p => {
-    const el = document.createElement('div');
-    el.className = 'compass-label' + ([0,90,180,270].includes(p.deg) ? ' cardinal' : '');
-    el.textContent = p.label;
-    el.dataset.deg = p.deg;
-    track.appendChild(el);
-  });
-  compassLabelsBuilt = true;
-}
+function renderLoop() {
+  if (!compassBuilt) {
+    const track = document.getElementById('compass-track');
+    COMPASS_POINTS.forEach(p => {
+      const el = document.createElement('div');
+      el.className = 'compass-label' + ([0,90,180,270].includes(p.deg) ? ' cardinal' : '');
+      el.textContent = p.label;
+      el.dataset.deg = p.deg;
+      track.appendChild(el);
+    });
+    compassBuilt = true;
+  }
 
-function updateCompassBar() {
-  if (!compassLabelsBuilt) buildCompassLabels();
-  if (state.heading === null) return;
-
-  const track = document.getElementById('compass-track');
-  const W = track.offsetWidth;
-  const degsPerPx = FOV / W; // how many degrees per pixel
-
-  document.querySelectorAll('.compass-label').forEach(el => {
-    const deg = parseFloat(el.dataset.deg);
-    let diff = normalizeDeg(deg - state.heading);
-    // diff in -180..180, center at 0
-    const x = W / 2 + diff / FOV * W;
-    if (x < -40 || x > W + 40) {
-      el.style.display = 'none';
-    } else {
+  if (state.heading !== null) {
+    // Compass bar
+    const W = document.getElementById('compass-track').offsetWidth;
+    document.querySelectorAll('.compass-label').forEach(el => {
+      const diff = normalizeDeg(parseFloat(el.dataset.deg) - state.heading);
+      const x = W / 2 + diff / FOV * W;
+      if (x < -40 || x > W + 40) { el.style.display = 'none'; return; }
       el.style.display = '';
       el.style.left = x + 'px';
-      const fade = Math.abs(diff) / FOV_HALF;
-      el.style.opacity = Math.max(0, 1 - fade * 0.8);
-    }
-  });
+      el.style.opacity = Math.max(0, 1 - Math.abs(diff) / FOV_HALF * 0.8);
+    });
+
+    // Heading label
+    const h = Math.round(state.heading);
+    document.getElementById('heading-display').textContent =
+      `${h.toString().padStart(3,'0')}° ${cardinal(h)}`;
+
+    // POI labels
+    if (state.gpsReady) updatePOILabels();
+  }
+
+  requestAnimationFrame(renderLoop);
 }
 
-function updateHeadingDisplay() {
-  if (state.heading === null) return;
-  const h = Math.round(state.heading);
-  const cardinal = headingToCardinal(h);
-  document.getElementById('heading-display').textContent = `${h.toString().padStart(3,'0')}° ${cardinal}`;
-}
-
-// ── POI labels ───────────────────────────────
+// ── POI labels ────────────────────────────────
 const poiContainer = document.getElementById('poi-container');
-const poiElements = new Map(); // name -> element
+const poiElements  = new Map();
+const POI_TOPS = [28, 35, 42, 22, 48];
 
 function updatePOILabels() {
-  if (state.heading === null || !state.gpsReady) return;
-
   const W = window.innerWidth;
   const visible = [];
 
   for (const poi of state.pois) {
-    let diff = normalizeDeg(poi.bearing - state.heading);
-    if (Math.abs(diff) > FOV_HALF * 1.2) continue; // outside FOV
+    const diff = normalizeDeg(poi.bearing - state.heading);
+    if (Math.abs(diff) > FOV_HALF * 1.2) continue;
     visible.push({ poi, diff });
   }
 
-  // Remove POIs no longer visible
+  // Remove invisible
   for (const [name, el] of poiElements) {
-    if (!visible.find(v => v.poi.name === name)) {
-      el.remove();
-      poiElements.delete(name);
-    }
+    if (!visible.find(v => v.poi.name === name)) { el.remove(); poiElements.delete(name); }
   }
 
-  // Add / update visible POIs
+  // Add / move
   for (const { poi, diff } of visible) {
     let el = poiElements.get(poi.name);
     if (!el) {
-      el = createPOIElement(poi);
+      el = buildPOIEl(poi);
       poiContainer.appendChild(el);
       poiElements.set(poi.name, el);
     }
-
-    const x = W / 2 + (diff / FOV_HALF) * (W / 2);
-    el.style.left = x + 'px';
-
-    // Fade by angular distance
-    const absDiff = Math.abs(diff);
-    const fade = absDiff > FOV_HALF * 0.7 ? 3 : absDiff > FOV_HALF * 0.4 ? 2 : 1;
-    el.dataset.fade = fade;
+    el.style.left = (W / 2 + (diff / FOV_HALF) * (W / 2)) + 'px';
+    const abs = Math.abs(diff);
+    el.dataset.fade = abs > FOV_HALF * 0.7 ? 3 : abs > FOV_HALF * 0.4 ? 2 : 1;
   }
 }
 
-function createPOIElement(poi) {
+function buildPOIEl(poi) {
   const el = document.createElement('div');
   el.className = 'poi-label';
-  // Stagger vertical position by name hash
-  const hash = poi.name.split('').reduce((a,c) => a + c.charCodeAt(0), 0);
-  const tops = [28, 35, 42, 22, 48];
-  el.style.top = tops[hash % tops.length] + '%';
+  const hash = poi.name.split('').reduce((a, c) => a + c.charCodeAt(0), 0);
+  el.style.top = POI_TOPS[hash % POI_TOPS.length] + '%';
 
-  const dot = document.createElement('div');
-  dot.className = 'poi-dot';
-  dot.style.top = el.style.top;
-
-  const connector = document.createElement('div');
-  connector.className = 'poi-connector';
-
-  const card = document.createElement('div');
-  card.className = 'poi-card';
-  card.innerHTML = `
-    <span class="poi-type-icon">${poi.type.emoji}</span>
-    <div class="poi-name">${poi.name}</div>
-    <div class="poi-distance">${formatDist(poi.dist)}</div>
+  el.innerHTML = `
+    <div class="poi-connector"></div>
+    <div class="poi-card">
+      <span class="poi-type-icon">${poi.type.emoji}</span>
+      <div class="poi-name">${poi.name}</div>
+      <div class="poi-distance">${fmtDist(poi.dist)}</div>
+    </div>
   `;
-
-  el.appendChild(connector);
-  el.appendChild(card);
-  el.addEventListener('click', () => showDetail(poi));
+  el.addEventListener('click', () => openDetail(poi));
   return el;
 }
 
-function showDetail(poi) {
-  document.getElementById('detail-icon').textContent = poi.type.emoji;
-  document.getElementById('detail-name').textContent = poi.name;
-  document.getElementById('detail-type').textContent = poi.type.label.toUpperCase();
-  document.getElementById('detail-dist').textContent = formatDist(poi.dist);
-  document.getElementById('detail-bearing').textContent =
-    Math.round(poi.bearing) + '° ' + headingToCardinal(poi.bearing);
-  document.getElementById('detail-coords').textContent =
-    poi.lat.toFixed(4) + ', ' + poi.lng.toFixed(4);
+function openDetail(poi) {
+  document.getElementById('detail-icon').textContent    = poi.type.emoji;
+  document.getElementById('detail-name').textContent    = poi.name;
+  document.getElementById('detail-type').textContent    = poi.type.label.toUpperCase();
+  document.getElementById('detail-dist').textContent    = fmtDist(poi.dist);
+  document.getElementById('detail-bearing').textContent = Math.round(poi.bearing) + '° ' + cardinal(poi.bearing);
+  document.getElementById('detail-coords').textContent  = poi.lat.toFixed(4) + ', ' + poi.lng.toFixed(4);
   document.getElementById('detail-panel').classList.add('visible');
 }
-
 function closeDetail() {
   document.getElementById('detail-panel').classList.remove('visible');
 }
 
-// ═══════════════════════════════════════════════
-//  GEO MATH
-// ═══════════════════════════════════════════════
+// ══════════════════════════════════════════════
+//  GEO UTILS
+// ══════════════════════════════════════════════
 function haversine(lat1, lon1, lat2, lon2) {
-  const R = 6371000; // metres
+  const R = 6371000;
   const dLat = (lat2 - lat1) * Math.PI / 180;
   const dLon = (lon2 - lon1) * Math.PI / 180;
   const a = Math.sin(dLat/2)**2 +
     Math.cos(lat1*Math.PI/180) * Math.cos(lat2*Math.PI/180) * Math.sin(dLon/2)**2;
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 }
-
 function calcBearing(lat1, lon1, lat2, lon2) {
-  const φ1 = lat1 * Math.PI / 180;
-  const φ2 = lat2 * Math.PI / 180;
-  const Δλ = (lon2 - lon1) * Math.PI / 180;
-  const y = Math.sin(Δλ) * Math.cos(φ2);
-  const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
-  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+  const φ1 = lat1*Math.PI/180, φ2 = lat2*Math.PI/180;
+  const Δλ = (lon2-lon1)*Math.PI/180;
+  return (Math.atan2(
+    Math.sin(Δλ)*Math.cos(φ2),
+    Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ)
+  ) * 180/Math.PI + 360) % 360;
 }
-
-// Normalize angle to -180..+180
 function normalizeDeg(d) {
   d = ((d % 360) + 360) % 360;
-  if (d > 180) d -= 360;
-  return d;
+  return d > 180 ? d - 360 : d;
 }
-
-function headingToCardinal(deg) {
-  const dirs = ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'];
-  return dirs[Math.round(deg / 22.5) % 16];
+function cardinal(deg) {
+  return ['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO']
+    [Math.round(deg / 22.5) % 16];
 }
-
-function formatDist(m) {
-  if (m < 1000) return Math.round(m) + ' m';
-  return (m / 1000).toFixed(1) + ' km';
+function fmtDist(m) {
+  return m < 1000 ? Math.round(m) + ' m' : (m/1000).toFixed(1) + ' km';
 }
 </script>
 </body>
