@@ -155,21 +155,33 @@
     .poi-label[data-fade="2"] { opacity: 0.6; }
     .poi-label[data-fade="3"] { opacity: 0.3; }
 
-    /* ── DISTANCE FILTER BAR ── */
-    #dist-filter {
+    /* ── FILTER BARS ── */
+    #filter-wrap {
       position: fixed;
       bottom: 52px; left: 0; right: 0;
       z-index: 21;
-      padding: 5px 12px;
+      display: flex; flex-direction: column; gap: 4px;
+      padding-bottom: 4px;
+      pointer-events: auto;
+    }
+    .filter-row {
       display: flex; gap: 5px;
       overflow-x: auto; -webkit-overflow-scrolling: touch;
       scrollbar-width: none;
-      pointer-events: auto;
-      background: linear-gradient(to top, rgba(2,13,26,0.7), transparent);
+      padding: 0 12px;
     }
-    #dist-filter::-webkit-scrollbar { display: none; }
+    .filter-row::-webkit-scrollbar { display: none; }
 
-    .dist-pill {
+    /* Category row background */
+    #cat-filter-row { padding-top: 5px; }
+
+    /* Distance row */
+    #dist-filter-row {
+      background: linear-gradient(to top, rgba(2,13,26,0.75), transparent);
+      padding-top: 2px; padding-bottom: 3px;
+    }
+
+    .dist-pill, .cat-pill {
       flex-shrink: 0;
       font-family: 'Space Mono', monospace; font-size: 10px;
       letter-spacing: 0.04em;
@@ -180,11 +192,66 @@
       backdrop-filter: blur(8px);
       transition: all 0.15s;
     }
-    .dist-pill:active { transform: scale(0.93); }
+    .dist-pill:active, .cat-pill:active { transform: scale(0.93); }
     .dist-pill.active {
       border-color: var(--cyan);
       background: var(--cyan-dim);
       color: var(--cyan);
+    }
+    .cat-pill.active {
+      border-color: var(--cat-color, var(--cyan));
+      background: color-mix(in srgb, var(--cat-color, var(--cyan)) 15%, transparent);
+      color: var(--cat-color, var(--cyan));
+    }
+
+    /* ── DETAIL ACTION BUTTONS ── */
+    #detail-actions {
+      display: flex; gap: 8px; margin-top: 14px; flex-wrap: wrap;
+    }
+    .detail-btn {
+      flex: 1; min-width: 100px;
+      font-family: 'Syne', sans-serif; font-size: 12px; font-weight: 700;
+      border-radius: 10px; padding: 9px 10px; cursor: pointer;
+      text-align: center; transition: opacity 0.15s; border: none;
+      display: flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .detail-btn:active { opacity: 0.75; }
+    #btn-gmaps {
+      background: #1a73e8; color: white;
+    }
+    #btn-poi {
+      background: var(--cyan-dim); color: var(--cyan);
+      border: 1px solid var(--cyan-border);
+    }
+
+    /* ── NEARBY POIs LOADER ── */
+    #nearby-list {
+      margin-top: 12px; display: none;
+    }
+    #nearby-list.visible { display: block; }
+    #nearby-title {
+      font-family: 'Space Mono', monospace; font-size: 9px;
+      color: var(--muted); letter-spacing: 0.08em; text-transform: uppercase;
+      margin-bottom: 8px;
+    }
+    #nearby-items {
+      display: flex; flex-direction: column; gap: 5px;
+      max-height: 160px; overflow-y: auto;
+    }
+    .nearby-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 7px 10px; border-radius: 8px;
+      background: rgba(0,229,255,0.05);
+      border: 1px solid rgba(0,229,255,0.1);
+      cursor: pointer; transition: background 0.15s;
+    }
+    .nearby-item:active { background: rgba(0,229,255,0.12); }
+    .nearby-item-icon { font-size: 14px; flex-shrink: 0; }
+    .nearby-item-name {
+      font-size: 12px; font-weight: 600; color: var(--text); flex: 1;
+    }
+    .nearby-item-type {
+      font-family: 'Space Mono', monospace; font-size: 9px; color: var(--muted);
     }
 
     /* ── BOTTOM HUD ── */
@@ -411,7 +478,10 @@
 <!-- ══════════════════════════════════════
      DISTANCE FILTER
 ══════════════════════════════════════ -->
-<div id="dist-filter"></div>
+<div id="filter-wrap">
+  <div class="filter-row" id="cat-filter-row"></div>
+  <div class="filter-row" id="dist-filter-row"></div>
+</div>
 
 <!-- ══════════════════════════════════════
      BOTTOM HUD
@@ -454,11 +524,28 @@
       <span class="detail-meta-value" id="detail-coords">—</span>
     </div>
   </div>
+
+  <!-- Action buttons -->
+  <div id="detail-actions">
+    <button class="detail-btn" id="btn-gmaps" onclick="openGoogleMaps()">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+      Google Maps
+    </button>
+    <button class="detail-btn" id="btn-poi" onclick="loadNearbyPOIs()">
+      🔍 Lieux à voir
+    </button>
+  </div>
+
+  <!-- Nearby POIs list -->
+  <div id="nearby-list">
+    <div id="nearby-title">LIEUX À PROXIMITÉ</div>
+    <div id="nearby-items"></div>
+  </div>
 </div>
 
 <script>
 // ══════════════════════════════════════════════
-//  CONFIG DISTANCES
+//  CONFIG
 // ══════════════════════════════════════════════
 const DISTANCES = [
   { label: '500m',  value: 500 },
@@ -470,36 +557,69 @@ const DISTANCES = [
   { label: '50km',  value: 50000 },
 ];
 
+const CATEGORIES = [
+  { id: 'all',       label: '🌐 Tout',        color: '#00e5ff' },
+  { id: 'city',      label: '🏙 Villes',       color: '#a78bfa' },
+  { id: 'coast',     label: '🗺 Côte & Caps',  color: '#38bdf8' },
+  { id: 'island',    label: '🏝 Îles',         color: '#34d399' },
+  { id: 'mountain',  label: '⛰ Montagnes',    color: '#fb923c' },
+  { id: 'forest',    label: '🌲 Forêts',       color: '#4ade80' },
+  { id: 'lighthouse',label: '🗼 Phares',       color: '#fbbf24' },
+];
+
 // ══════════════════════════════════════════════
 //  STATE
 // ══════════════════════════════════════════════
 const state = {
   userLat: null, userLng: null,
   heading: null,
-  allPois: [],   // all POIs from last fetch (up to 50km)
-  pois: [],      // filtered by current maxDist
+  allPois: [],
+  pois: [],
   compassSource: null,
   gpsReady: false,
   lastFetchLat: null, lastFetchLng: null,
-  maxDist: 50000,   // default: 50km
+  maxDist: 50000,
+  activeCat: 'all',
+  detailPoi: null,
 };
 
 const FOV = 75;
 const FOV_HALF = FOV / 2;
 
 // ══════════════════════════════════════════════
-//  DISTANCE FILTER
+//  FILTERS — distance + category
 // ══════════════════════════════════════════════
-function buildDistFilter() {
-  const bar = document.getElementById('dist-filter');
-  bar.innerHTML = '';
+function buildFilters() {
+  // Category pills
+  const catBar = document.getElementById('cat-filter-row');
+  catBar.innerHTML = '';
+  CATEGORIES.forEach(c => {
+    const btn = document.createElement('button');
+    btn.className = 'cat-pill' + (c.id === state.activeCat ? ' active' : '');
+    btn.textContent = c.label;
+    btn.style.setProperty('--cat-color', c.color);
+    btn.addEventListener('click', () => selectCat(c.id));
+    catBar.appendChild(btn);
+  });
+
+  // Distance pills
+  const distBar = document.getElementById('dist-filter-row');
+  distBar.innerHTML = '';
   DISTANCES.forEach(d => {
     const btn = document.createElement('button');
     btn.className = 'dist-pill' + (d.value === state.maxDist ? ' active' : '');
     btn.textContent = d.label;
     btn.addEventListener('click', () => selectDist(d.value));
-    bar.appendChild(btn);
+    distBar.appendChild(btn);
   });
+}
+
+function selectCat(id) {
+  state.activeCat = id;
+  document.querySelectorAll('.cat-pill').forEach((btn, i) => {
+    btn.classList.toggle('active', CATEGORIES[i].id === id);
+  });
+  applyFilter();
 }
 
 function selectDist(m) {
@@ -507,7 +627,6 @@ function selectDist(m) {
   document.querySelectorAll('.dist-pill').forEach((btn, i) => {
     btn.classList.toggle('active', DISTANCES[i].value === m);
   });
-  // If we need data beyond what we have, re-fetch; otherwise just re-filter
   const needFetch = !state.lastFetchLat || m > 50000;
   if (needFetch) {
     state.lastFetchLat = null;
@@ -518,8 +637,11 @@ function selectDist(m) {
 }
 
 function applyFilter() {
-  state.pois = state.allPois.filter(p => p.dist <= state.maxDist);
-  // Clear rendered labels
+  state.pois = state.allPois.filter(p => {
+    if (p.dist > state.maxDist) return false;
+    if (state.activeCat === 'all') return true;
+    return p.type.cat === state.activeCat;
+  });
   poiElements.forEach(el => el.remove());
   poiElements.clear();
   updatePoiCount();
@@ -580,7 +702,7 @@ async function initApp() {
     setPermStatus('compass', 'ok');
   }
 
-  buildDistFilter();
+  buildFilters();
 
   // Fade out startup
   const startup = document.getElementById('startup');
@@ -592,11 +714,29 @@ async function initApp() {
 }
 
 // ── GPS ──────────────────────────────────────
-function startGPS() {
+async function startGPS() {
+  // 1. Check permission state before asking (avoids silent denial)
+  if (navigator.permissions) {
+    try {
+      const perm = await navigator.permissions.query({ name: 'geolocation' });
+      if (perm.state === 'denied') {
+        // Already blocked — can't re-prompt, must go to settings
+        setPermStatus('gps', 'denied');
+        showGPSHelp(1); // code 1 = PERMISSION_DENIED
+        document.getElementById('gps-dot').classList.add('error');
+        document.getElementById('gps-text').textContent = 'GPS refusé — voir aide';
+        return;
+      }
+      // If 'granted' or 'prompt', continue normally
+    } catch(e) { /* permissions API not fully supported, continue anyway */ }
+  }
+
+  // 2. Actually request position
   navigator.geolocation.getCurrentPosition(
     pos => {
       onGPS(pos);
       setPermStatus('gps', 'ok');
+      document.getElementById('gps-help').classList.remove('visible');
       // Keep watching
       navigator.geolocation.watchPosition(onGPS, onGPSWatchError, {
         enableHighAccuracy: true, maximumAge: 5000, timeout: 20000
@@ -653,27 +793,37 @@ function showGPSHelp(code) {
   if (code === 1 || code === 'denied') {
     if (isIOS) {
       msg =
-        '1. Ferme Safari complètement\n' +
-        '2. Réglages → Confidentialité & Sécurité\n' +
+        'La localisation a été refusée. Pour corriger :\n\n' +
+        '1. Ouvre l\'app Réglages (⚙️)\n' +
+        '2. Confidentialité & Sécurité\n' +
         '   → Service de localisation\n' +
-        '3. Cherche Safari → sélectionne\n' +
-        '   « Lors de l\'utilisation de l\'app »\n' +
-        '4. Reviens ici → appuie sur Réessayer';
+        '3. Trouve Safari dans la liste\n' +
+        '   → choisis « Lors de l\'utilisation »\n' +
+        '4. Reviens sur cette page et\n' +
+        '   appuie sur ↺ Réessayer';
     } else if (isAndroid) {
       msg =
-        '1. Appuie sur 🔒 dans la barre d\'adresse\n' +
-        '2. Autorisations → Localisation\n' +
-        '   → sélectionne « Autoriser »\n' +
-        '3. Recharge la page → Réessayer';
+        'La localisation a été refusée. Pour corriger :\n\n' +
+        'Option 1 — Barre d\'adresse :\n' +
+        '  Appuie sur 🔒 ou ⓘ → Autorisations\n' +
+        '  → Localisation → Autoriser\n\n' +
+        'Option 2 — Réglages Android :\n' +
+        '  Applis → Chrome/navigateur\n' +
+        '  → Autorisations → Localisation\n\n' +
+        'Puis recharge la page et Réessayer.';
     } else {
-      msg = 'Autorise la localisation dans\nles paramètres de ton navigateur,\npuis appuie sur Réessayer.';
+      msg =
+        'La localisation a été refusée.\n\n' +
+        'Clique sur l\'icône 🔒 ou ⓘ dans\n' +
+        'la barre d\'adresse de ton navigateur,\n' +
+        'puis autorise la localisation.\nEnsuite appuie sur Réessayer.';
     }
   } else if (code === 2) {
-    msg = 'Signal GPS indisponible.\nVérifie que le GPS est activé\nsur ton appareil, puis Réessayer.';
+    msg = 'Signal GPS indisponible.\n\nVérifie que la localisation est\nactivée dans les réglages de\nton téléphone, puis Réessayer.';
   } else if (code === 3) {
-    msg = 'Délai dépassé. Va en extérieur\net assure-toi que le GPS est actif,\npuis Réessayer.';
+    msg = 'Délai GPS dépassé.\n\nAssure-toi d\'être en extérieur\navec le GPS activé, puis Réessayer.';
   } else {
-    msg = 'GPS non supporté par ce navigateur.\nEssaie avec Chrome ou Safari.';
+    msg = 'GPS non supporté par ce navigateur.\nEssaie avec Safari (iOS) ou Chrome (Android).';
   }
   body.textContent = msg;
   panel.classList.add('visible');
@@ -746,15 +896,20 @@ async function fetchPOIs() {
   const radius = 50000; // always fetch max, filter client-side
 
   const query = `
-[out:json][timeout:25];
+[out:json][timeout:30];
 (
   node["place"~"^(island|islet|city|town|village|hamlet|suburb)$"](around:${radius},${lat},${lng});
-  node["natural"~"^(peak|volcano|cliff|cape|bay|strait)$"](around:${radius},${lat},${lng});
+  node["natural"~"^(peak|volcano|cliff|cape|bay|strait|peninsula)$"](around:${radius},${lat},${lng});
+  node["natural"="wood"]["name"](around:${radius},${lat},${lng});
+  node["landuse"="forest"]["name"](around:${radius},${lat},${lng});
   node["man_made"="lighthouse"](around:${radius},${lat},${lng});
   way["place"~"^(island|islet)$"](around:${radius},${lat},${lng});
+  way["natural"="wood"]["name"](around:${radius},${lat},${lng});
+  way["landuse"="forest"]["name"](around:${radius},${lat},${lng});
   relation["place"~"^(island|islet)$"](around:${radius},${lat},${lng});
+  relation["natural"="wood"]["name"](around:${radius},${lat},${lng});
 );
-out center 300;
+out center 400;
   `.trim();
 
   try {
@@ -787,7 +942,7 @@ function processPOIs(elements, userLat, userLng) {
     results.push({
       name, lat: eLat, lng: eLng, dist,
       bearing: calcBearing(userLat, userLng, eLat, eLng),
-      type: classifyPOI(el.tags)
+      type: classifyPOI(el.tags, name)
     });
   }
   results.sort((a, b) => a.dist - b.dist);
@@ -795,20 +950,46 @@ function processPOIs(elements, userLat, userLng) {
   applyFilter();
 }
 
-function classifyPOI(tags) {
-  if (!tags) return { emoji: '📍', label: 'Lieu' };
-  const p = tags.place, n = tags.natural, m = tags.man_made;
-  if (p === 'island' || p === 'islet')   return { emoji: '🏝️', label: 'Île' };
-  if (n === 'peak' || n === 'volcano')   return { emoji: '⛰️', label: 'Sommet' };
-  if (n === 'cape')                      return { emoji: '🗺️', label: 'Cap' };
-  if (n === 'bay')                       return { emoji: '🌊', label: 'Baie' };
-  if (n === 'strait')                    return { emoji: '〰️', label: 'Détroit' };
-  if (n === 'cliff')                     return { emoji: '🪨', label: 'Falaise' };
-  if (m === 'lighthouse')                return { emoji: '🗼', label: 'Phare' };
-  if (p === 'city')                      return { emoji: '🏙️', label: 'Ville' };
-  if (p === 'town')                      return { emoji: '🏘️', label: 'Bourg' };
-  if (p === 'village' || p === 'hamlet') return { emoji: '🏡', label: 'Village' };
-  return { emoji: '📍', label: 'Lieu' };
+function classifyPOI(tags, name) {
+  if (!tags) return { emoji: '📍', label: 'Lieu', cat: 'all' };
+  const p = tags.place, n = tags.natural, m = tags.man_made, lu = tags.landuse;
+  const nm = (name || '').toLowerCase();
+
+  // Forest
+  if (n === 'wood' || lu === 'forest')
+    return { emoji: '🌲', label: 'Forêt', cat: 'forest' };
+
+  // Lighthouse
+  if (m === 'lighthouse')
+    return { emoji: '🗼', label: 'Phare', cat: 'lighthouse' };
+
+  // Islands
+  if (p === 'island' || p === 'islet')
+    return { emoji: '🏝️', label: 'Île', cat: 'island' };
+
+  // Coastal features — detect "pointe", "pointe de", "tas de", "presqu'île" by name too
+  if (n === 'cape' || n === 'peninsula' ||
+      nm.startsWith('pointe') || nm.startsWith('cap ') || nm.startsWith('cap-') ||
+      nm.startsWith('raz ') || nm === 'pointe du raz' ||
+      nm.includes("presqu'île") || nm.includes('presquile') ||
+      nm.includes('tas de'))
+    return { emoji: '🗺️', label: 'Cap / Pointe', cat: 'coast' };
+
+  if (n === 'bay')   return { emoji: '🌊', label: 'Baie', cat: 'coast' };
+  if (n === 'strait') return { emoji: '〰️', label: 'Détroit', cat: 'coast' };
+  if (n === 'cliff') return { emoji: '🪨', label: 'Falaise', cat: 'coast' };
+
+  // Mountains
+  if (n === 'peak' || n === 'volcano')
+    return { emoji: '⛰️', label: 'Sommet', cat: 'mountain' };
+
+  // Cities / towns
+  if (p === 'city')   return { emoji: '🏙️', label: 'Ville', cat: 'city' };
+  if (p === 'town')   return { emoji: '🏘️', label: 'Bourg', cat: 'city' };
+  if (p === 'village' || p === 'hamlet' || p === 'suburb')
+    return { emoji: '🏡', label: 'Village', cat: 'city' };
+
+  return { emoji: '📍', label: 'Lieu', cat: 'all' };
 }
 
 function refreshPOIs() {
@@ -921,16 +1102,116 @@ function buildPOIEl(poi) {
 }
 
 function openDetail(poi) {
+  state.detailPoi = poi;
   document.getElementById('detail-icon').textContent    = poi.type.emoji;
   document.getElementById('detail-name').textContent    = poi.name;
   document.getElementById('detail-type').textContent    = poi.type.label.toUpperCase();
   document.getElementById('detail-dist').textContent    = fmtDist(poi.dist);
   document.getElementById('detail-bearing').textContent = Math.round(poi.bearing) + '° ' + cardinal(poi.bearing);
   document.getElementById('detail-coords').textContent  = poi.lat.toFixed(4) + ', ' + poi.lng.toFixed(4);
+
+  // Show "Lieux à voir" only for cities/towns/villages
+  const showPoi = ['city'].includes(poi.type.cat);
+  document.getElementById('btn-poi').style.display = showPoi ? '' : 'none';
+
+  // Reset nearby list
+  document.getElementById('nearby-list').classList.remove('visible');
+  document.getElementById('nearby-items').innerHTML = '';
   document.getElementById('detail-panel').classList.add('visible');
 }
+
 function closeDetail() {
   document.getElementById('detail-panel').classList.remove('visible');
+  document.getElementById('nearby-list').classList.remove('visible');
+}
+
+function openGoogleMaps() {
+  const poi = state.detailPoi;
+  if (!poi) return;
+  // Opens directions from user location to the POI
+  const url = `https://www.google.com/maps/dir/?api=1&origin=${state.userLat},${state.userLng}&destination=${poi.lat},${poi.lng}&travelmode=driving`;
+  window.open(url, '_blank');
+}
+
+async function loadNearbyPOIs() {
+  const poi = state.detailPoi;
+  if (!poi) return;
+  const btn = document.getElementById('btn-poi');
+  btn.textContent = '⏳ Chargement…';
+  btn.disabled = true;
+
+  const radius = 3000; // 3km around the city
+  const query = `
+[out:json][timeout:20];
+(
+  node["tourism"~"^(attraction|museum|viewpoint|artwork|gallery|zoo|theme_park|monument|castle)$"](around:${radius},${poi.lat},${poi.lng});
+  node["historic"~"^(castle|monument|ruins|church|manor|archaeological_site|memorial)$"](around:${radius},${poi.lat},${poi.lng});
+  node["amenity"~"^(place_of_worship|theatre|cinema|library)$"]["name"](around:${radius},${poi.lat},${poi.lng});
+  node["leisure"~"^(park|garden|nature_reserve|beach_resort)$"]["name"](around:${radius},${poi.lat},${poi.lng});
+  node["natural"~"^(beach|cliff|peak|cape)$"]["name"](around:${radius},${poi.lat},${poi.lng});
+);
+out 30;
+  `.trim();
+
+  try {
+    const resp = await fetch('https://overpass-api.de/api/interpreter', { method:'POST', body:query });
+    const data = await resp.json();
+    const items = data.elements
+      .filter(e => e.tags?.name)
+      .map(e => ({ name: e.tags.name, tags: e.tags }))
+      .filter((e, i, arr) => arr.findIndex(x => x.name === e.name) === i)
+      .slice(0, 15);
+
+    const container = document.getElementById('nearby-items');
+    container.innerHTML = '';
+
+    if (items.length === 0) {
+      container.innerHTML = '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--muted);padding:8px">Aucun lieu référencé trouvé.</div>';
+    } else {
+      items.forEach(item => {
+        const { emoji, label } = classifyNearbyTags(item.tags);
+        const div = document.createElement('div');
+        div.className = 'nearby-item';
+        div.innerHTML = `
+          <span class="nearby-item-icon">${emoji}</span>
+          <span class="nearby-item-name">${item.name}</span>
+          <span class="nearby-item-type">${label}</span>
+        `;
+        // Tap → open in Google Maps search
+        div.addEventListener('click', () => {
+          window.open(`https://www.google.com/maps/search/${encodeURIComponent(item.name + ' ' + poi.name)}`, '_blank');
+        });
+        container.appendChild(div);
+      });
+    }
+
+    document.getElementById('nearby-list').classList.add('visible');
+  } catch(e) {
+    document.getElementById('nearby-items').innerHTML =
+      '<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--red);padding:8px">Erreur réseau.</div>';
+    document.getElementById('nearby-list').classList.add('visible');
+  } finally {
+    btn.textContent = '🔍 Lieux à voir';
+    btn.disabled = false;
+  }
+}
+
+function classifyNearbyTags(tags) {
+  const t = tags.tourism, h = tags.historic, a = tags.amenity, l = tags.leisure, n = tags.natural;
+  if (t === 'museum')           return { emoji: '🏛', label: 'Musée' };
+  if (t === 'viewpoint')        return { emoji: '👁', label: 'Panorama' };
+  if (t === 'attraction' || t === 'monument') return { emoji: '⭐', label: 'Attraction' };
+  if (t === 'artwork')          return { emoji: '🎨', label: 'Art' };
+  if (t === 'castle' || h === 'castle' || h === 'manor') return { emoji: '🏰', label: 'Château' };
+  if (h === 'church' || a === 'place_of_worship') return { emoji: '⛪', label: 'Religieux' };
+  if (h === 'ruins' || h === 'archaeological_site') return { emoji: '🏚', label: 'Ruines' };
+  if (h === 'memorial' || h === 'monument') return { emoji: '🗿', label: 'Monument' };
+  if (l === 'park' || l === 'garden')       return { emoji: '🌳', label: 'Parc' };
+  if (l === 'nature_reserve')               return { emoji: '🌿', label: 'Réserve' };
+  if (n === 'beach')            return { emoji: '🏖', label: 'Plage' };
+  if (n === 'peak')             return { emoji: '⛰', label: 'Sommet' };
+  if (a === 'theatre' || a === 'cinema')    return { emoji: '🎭', label: 'Culture' };
+  return { emoji: '📍', label: 'Lieu' };
 }
 
 // ══════════════════════════════════════════════
