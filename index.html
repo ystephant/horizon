@@ -55,7 +55,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 .dgerr{color:var(--red)!important}.dgok{color:var(--gr)!important}.dgwarn{color:var(--gold)!important}
 
 /* poi labels */
-.poi{position:absolute;transform:translateX(-50%) translateY(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transition:opacity .3s}
+.poi{position:absolute;transform:translateX(-50%) translateY(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transition:left .12s linear,opacity .4s}
 .poc{width:1px;background:linear-gradient(to bottom,var(--cb),transparent);margin-bottom:3px}
 .pob{background:var(--sf);border:1px solid var(--cb);border-radius:10px;padding:6px 10px;backdrop-filter:blur(14px);min-width:78px;max-width:126px;text-align:center;transition:border-color .15s}
 .poi:active .pob{border-color:var(--c)}
@@ -392,7 +392,7 @@ const CATS = [
   {id:'site', lb:'📌 Lieux-dits',  cc:'#f472b6'},
 ];
 const FOV = 62, FOV2 = FOV/2; // ~62° = FOV horizontal réel smartphone
-const ALPHA = 0.15;
+const ALPHA = 0.06; // lissage boussole — plus bas = plus doux
 
 // ═══════════════════════════════════════════
 // STATE
@@ -984,25 +984,57 @@ function renderLoop(){
   requestAnimationFrame(renderLoop);
 }
 
+// Hystérésis : zone d'entrée plus large que zone de sortie
+// → un POI apparaît à FOV2*1.3, ne disparaît qu'à FOV2*1.6
+const ENTER_THRESHOLD = FOV2 * 1.3;
+const EXIT_THRESHOLD  = FOV2 * 1.6;
+
 function updPOIs(h){
-  const W=window.innerWidth;
-  const vis=[];
+  const W = window.innerWidth;
+
+  // Calcul des angles pour tous les POIs visibles
+  const angles = new Map();
   for(const p of S.pois){
-    const df=ndeg(p.bearing-h);
-    if(Math.abs(df)>FOV2*1.2)continue;
-    vis.push({p,df});
+    const df = ndeg(p.bearing - h);
+    angles.set(p.name, df);
   }
-  for(const[n,e]of poiEls){
-    if(!vis.find(v=>v.p.name===n)){e.remove();poiEls.delete(n);}
+
+  // Suppression avec hystérésis : on ne retire un élément
+  // que s'il est VRAIMENT sorti (EXIT_THRESHOLD), pas juste hors FOV
+  for(const [n, e] of poiEls){
+    const df = angles.get(n);
+    if(df === undefined || Math.abs(df) > EXIT_THRESHOLD){
+      e.remove();
+      poiEls.delete(n);
+    }
   }
-  for(const{p,df}of vis){
-    let e=poiEls.get(p.name);
-    if(!e){e=buildPOI(p);document.getElementById('poic').appendChild(e);poiEls.set(p.name,e);}
-    e.style.left=(W/2+(df/FOV2)*(W/2))+'px';
-    const a=Math.abs(df);
-    e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
-    const ch=Math.max(18,Math.round(55*(1-Math.min(p.dist/S.maxD,1))));
-    e.querySelector('.poc').style.height=ch+'px';
+
+  // Ajout et mise à jour — on n'ajoute que si dans ENTER_THRESHOLD
+  for(const p of S.pois){
+    const df = angles.get(p.name);
+    if(df === undefined) continue;
+    const absdf = Math.abs(df);
+
+    // N'ajoute un nouveau POI que s'il est dans la zone d'entrée
+    if(!poiEls.has(p.name)){
+      if(absdf > ENTER_THRESHOLD) continue;
+      const e = buildPOI(p);
+      document.getElementById('poic').appendChild(e);
+      poiEls.set(p.name, e);
+    }
+
+    const e = poiEls.get(p.name);
+
+    // Position X avec transition CSS pour fluidité
+    const x = W/2 + (df/FOV2)*(W/2);
+    e.style.left = x + 'px';
+
+    // Opacité : fade progressif vers les bords
+    e.dataset.f = absdf > FOV2*.75 ? 3 : absdf > FOV2*.45 ? 2 : 1;
+
+    // Hauteur connecteur
+    const ch = Math.max(18, Math.round(55*(1-Math.min(p.dist/S.maxD,1))));
+    e.querySelector('.poc').style.height = ch + 'px';
   }
 }
 
