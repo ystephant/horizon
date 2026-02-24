@@ -88,27 +88,49 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 #dbg{position:fixed;top:90px;left:50%;transform:translateX(-50%);z-index:50;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold);background:rgba(2,13,26,.85);border:1px solid rgba(251,191,36,.4);border-radius:20px;padding:4px 14px;pointer-events:none;display:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis}
 
 /* detail panel */
-#det{position:fixed;bottom:106px;left:12px;right:12px;z-index:30;background:rgba(2,18,34,.96);border:1px solid var(--cb);border-radius:16px;padding:15px 16px;backdrop-filter:blur(20px);display:none;pointer-events:auto;max-height:68vh;overflow-y:auto}
-#det.on{display:block}
-#detx{position:absolute;top:10px;right:12px;background:none;border:none;color:var(--mu);font-size:16px;cursor:pointer;font-family:'Space Mono',monospace}
-#deti{font-size:24px;margin-bottom:4px}
-#detn{font-size:18px;font-weight:800;margin-bottom:2px}
-#dett{font-family:'Space Mono',monospace;font-size:10px;color:var(--c);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
-#detm{display:flex;gap:14px;flex-wrap:wrap}
+#det{position:fixed;bottom:50px;left:0;right:0;z-index:30;background:rgba(2,13,26,.97);border-top:1px solid var(--cb);pointer-events:auto;max-height:80vh;display:none;flex-direction:column;backdrop-filter:blur(20px)}
+#det.on{display:flex}
+#deth{flex-shrink:0;padding:14px 16px 10px;position:relative}
+#detx{position:absolute;top:12px;right:12px;background:rgba(0,229,255,.08);border:1px solid var(--cb);color:var(--mu);font-size:12px;cursor:pointer;font-family:'Space Mono',monospace;border-radius:50%;width:26px;height:26px;display:flex;align-items:center;justify-content:center}
+#deti{font-size:22px;margin-bottom:3px}
+#detn{font-size:19px;font-weight:800;margin-bottom:1px;padding-right:34px}
+#dett{font-family:'Space Mono',monospace;font-size:9px;color:var(--c);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+#detm{display:flex;gap:14px;flex-wrap:wrap;margin-bottom:4px}
 .dmi{display:flex;flex-direction:column;gap:2px}
 .dml{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);letter-spacing:.08em;text-transform:uppercase}
 .dmv{font-family:'Space Mono',monospace;font-size:12px;color:var(--tx);font-weight:700}
-#deta{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
-.dbtn{flex:1;min-width:90px;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;border-radius:10px;padding:8px;cursor:pointer;border:none;display:flex;align-items:center;justify-content:center;gap:5px;transition:opacity .15s}
-.dbtn:active{opacity:.75}
-#bgm{background:#1a73e8;color:white}
-#bpoi{background:var(--cd);color:var(--c);border:1px solid var(--cb) !important}
-#nbl{margin-top:10px;display:none}
-#nbl.on{display:block}
-.nbt{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);text-transform:uppercase;margin-bottom:6px}
+/* tab bar */
+#dettabs{flex-shrink:0;display:flex;border-top:1px solid rgba(0,229,255,.12);border-bottom:1px solid rgba(0,229,255,.12)}
+.dtab{flex:1;padding:10px 6px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;background:none;border:none;border-bottom:2px solid transparent;color:var(--mu);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;transition:color .15s,background .15s}
+.dtab.on{color:var(--c);border-bottom-color:var(--c);background:rgba(0,229,255,.05)}
+.dtab:active{background:rgba(0,229,255,.08)}
+/* tab content */
+#detbody{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.dtpanel{display:none;padding:14px 16px 24px}
+.dtpanel.on{display:block}
+/* info panel */
+#infophotos{display:flex;gap:8px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;margin-bottom:12px}
+#infophotos::-webkit-scrollbar{display:none}
+.infophoto{flex-shrink:0;width:150px;height:100px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,229,255,.15);cursor:pointer}
+#infoextract{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);line-height:1.85;margin-bottom:12px}
+#infowikilink{display:none;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;color:var(--c);background:var(--cd);border:1px solid var(--cb);border-radius:9px;padding:7px 12px;cursor:pointer;width:100%;text-align:center;margin-bottom:12px}
+#infowikilink.on{display:block}
+.nbt{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);text-transform:uppercase;margin-bottom:6px;margin-top:8px}
 .nbi{display:flex;align-items:center;gap:7px;padding:7px 9px;border-radius:8px;background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.1);cursor:pointer;margin-bottom:4px;transition:background .15s}
 .nbi:active{background:rgba(0,229,255,.12)}
 .nbii{font-size:13px;flex-shrink:0}.nbin{font-size:11px;font-weight:600;color:var(--tx);flex:1}.nbit{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu)}
+#infoloading{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);text-align:center;padding:22px 0;display:none}
+#infoloading.on{display:block}
+#infonotfound{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);text-align:center;padding:18px 0;display:none}
+#infonotfound.on{display:block}
+/* itinerary panel */
+#itinmode{display:flex;gap:6px;margin-bottom:14px}
+.imode{flex:1;font-family:'Syne',sans-serif;font-size:12px;font-weight:700;border-radius:9px;padding:9px 4px;cursor:pointer;border:1px solid rgba(0,229,255,.2);background:rgba(2,13,26,.6);color:var(--mu);transition:all .15s;text-align:center}
+.imode.on{border-color:var(--c);background:var(--cd);color:var(--c)}
+.imode:active{opacity:.75}
+#itininfo{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);margin-bottom:14px;line-height:1.75;background:rgba(0,229,255,.04);border:1px solid rgba(0,229,255,.1);border-radius:9px;padding:10px 12px}
+#itingo{width:100%;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;background:#1a73e8;color:white;border:none;border-radius:12px;padding:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s}
+#itingo:active{opacity:.8}
 
 /* map modal */
 #mmap{position:fixed;inset:0;z-index:200;background:var(--bg);display:none;flex-direction:column}
@@ -276,18 +298,48 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 
 <!-- DETAIL PANEL -->
 <div id="det">
-  <button id="detx" onclick="closeDet()">✕</button>
-  <div id="deti">📍</div><div id="detn">—</div><div id="dett">—</div>
-  <div id="detm">
-    <div class="dmi"><span class="dml">Distance</span><span class="dmv" id="dmd">—</span></div>
-    <div class="dmi"><span class="dml">Direction</span><span class="dmv" id="dmb">—</span></div>
-    <div class="dmi"><span class="dml">Coords</span><span class="dmv" id="dmxy">—</span></div>
+  <!-- Header -->
+  <div id="deth">
+    <button id="detx" onclick="closeDet()">✕</button>
+    <div id="deti">📍</div>
+    <div id="detn">—</div>
+    <div id="dett">—</div>
+    <div id="detm">
+      <div class="dmi"><span class="dml">Distance</span><span class="dmv" id="dmd">—</span></div>
+      <div class="dmi"><span class="dml">Direction</span><span class="dmv" id="dmb">—</span></div>
+      <div class="dmi"><span class="dml">Coords</span><span class="dmv" id="dmxy">—</span></div>
+    </div>
   </div>
-  <div id="deta">
-    <button class="dbtn" id="bgm" onclick="goGMaps()">🗺 Google Maps</button>
-    <button class="dbtn" id="bpoi" onclick="loadNearby()">🔍 Lieux à voir</button>
+  <!-- Tabs -->
+  <div id="dettabs">
+    <button class="dtab on" id="tabinfo" onclick="switchTab('info')">ℹ️ Informations</button>
+    <button class="dtab" id="tabitin" onclick="switchTab('itin')">🚶 Itinéraire</button>
   </div>
-  <div id="nbl"><div class="nbt">LIEUX À PROXIMITÉ</div><div id="nbi"></div></div>
+  <!-- Body -->
+  <div id="detbody">
+    <!-- Info tab -->
+    <div class="dtpanel on" id="panelinfo">
+      <div id="infoloading">⏳ Chargement…</div>
+      <div id="infonotfound">Aucune information trouvée sur Wikipedia.</div>
+      <div id="infophotos"></div>
+      <div id="infoextract"></div>
+      <button id="infowikilink" onclick="openWiki()">📖 Lire sur Wikipédia</button>
+      <div id="infonbl"></div>
+    </div>
+    <!-- Itinerary tab -->
+    <div class="dtpanel" id="panelihtin">
+      <div id="itinmode">
+        <button class="imode on" data-mode="walking" onclick="selMode(this)">🚶 À pied</button>
+        <button class="imode" data-mode="bicycling" onclick="selMode(this)">🚲 Vélo</button>
+        <button class="imode" data-mode="driving" onclick="selMode(this)">🚗 Voiture</button>
+        <button class="imode" data-mode="transit" onclick="selMode(this)">🚌 Transport</button>
+      </div>
+      <div id="itininfo">Calcul du trajet depuis ta position…</div>
+      <button id="itingo" onclick="goItinerary()">
+        <span id="itingoico">🚶</span> Ouvrir dans Google Maps
+      </button>
+    </div>
+  </div>
 </div>
 
 <!-- MAP MODAL -->
@@ -339,7 +391,7 @@ const CATS = [
   {id:'lh',   lb:'🗼 Phares',      cc:'#fbbf24'},
   {id:'site', lb:'📌 Lieux-dits',  cc:'#f472b6'},
 ];
-const FOV = 75, FOV2 = FOV/2;
+const FOV = 62, FOV2 = FOV/2; // ~62° = FOV horizontal réel smartphone
 const ALPHA = 0.15;
 
 // ═══════════════════════════════════════════
@@ -631,14 +683,35 @@ function selCat(id){
 // ═══════════════════════════════════════════
 // FILTER LOGIC
 // ═══════════════════════════════════════════
+// Max POIs per category when showing "Tout" — évite que forêts/îles noient le reste
+const CAP_PER_CAT = { wood:12, isle:12, city:60, coast:20, mount:15, lh:10, site:20, all:15 };
+const TOTAL_CAP = 100;
+
 function applyFilter(){
   let dMin=0, dMax=S.maxD;
   if(S.band && S.maxD>2000){ dMin=S.maxD*0.9; dMax=S.maxD*1.1; }
+
   const filtered=S.allPOIs.filter(p=>{
     if(p.dist<dMin||p.dist>dMax)return false;
     return S.cat==='all'||p.type.cat===S.cat;
   });
-  S.pois=filtered.slice(0,80);
+
+  let result;
+  if(S.cat==='all'){
+    // Enforce per-category cap to guarantee diversity
+    const counts={};
+    result=[];
+    for(const p of filtered){
+      const c=p.type.cat;
+      const cap=CAP_PER_CAT[c]??12;
+      counts[c]=(counts[c]||0);
+      if(counts[c]<cap){ counts[c]++; result.push(p); }
+    }
+  } else {
+    result=filtered;
+  }
+
+  S.pois=result.slice(0,TOTAL_CAP);
   poiEls.forEach(e=>e.remove()); poiEls.clear();
   const rng=S.band&&S.maxD>2000?`${fmt(dMin)}–${fmt(dMax)}`:`0–${fmt(dMax)}`;
   document.getElementById('pcnt').textContent=`${S.pois.length} pts · ${rng}`;
@@ -703,8 +776,22 @@ function processPOIs(els,ulat,ulng){
     res.push({name,lat:eLat,lng:eLng,dist,bearing:brg(ulat,ulng,eLat,eLng),type:classify(el.tags,name)});
   }
   res.sort((a,b)=>a.dist-b.dist);
-  S.allPOIs=res;
-  showDbg(`✓ ${res.length} POIs traités`);
+
+  // Spatial dedup: distance minimale entre deux POIs de même catégorie
+  // Les villes/villages peuvent être très proches → seuil bas
+  const SPATIAL_BY_CAT = { wood:600, isle:250, coast:500, mount:800, lh:400, site:150, city:200, all:150 };
+  const kept=[], spatialKeys=[];
+  for(const p of res){
+    const minD = SPATIAL_BY_CAT[p.type.cat] ?? 150;
+    const tooClose=spatialKeys.some(k=>k.cat===p.type.cat && hav(p.lat,p.lng,k.lat,k.lng)<minD);
+    if(!tooClose){
+      kept.push(p);
+      spatialKeys.push({cat:p.type.cat,lat:p.lat,lng:p.lng});
+    }
+  }
+
+  S.allPOIs=kept;
+  showDbg(`✓ ${kept.length} POIs (${res.length} bruts)`);
   applyFilter();
 }
 
@@ -935,30 +1022,187 @@ function buildPOI(p){
 }
 
 // ═══════════════════════════════════════════
-// DETAIL
+// DETAIL PANEL — tabs: Informations / Itinéraire
 // ═══════════════════════════════════════════
+let itinMode = 'walking';
+let wikiPageTitle = null;
+
+const ITIN_ICONS = {walking:'🚶',bicycling:'🚲',driving:'🚗',transit:'🚌'};
+const ITIN_LABELS = {walking:'À pied',bicycling:'À vélo',driving:'En voiture',transit:'En transport'};
+const ITIN_TIMES = {walking:5,bicycling:15,driving:80};  // km/h approx
+
 function openDet(p){
-  S.detPOI=p;
-  document.getElementById('deti').textContent=p.type.emoji;
-  document.getElementById('detn').textContent=p.name;
-  document.getElementById('dett').textContent=p.type.label.toUpperCase();
-  document.getElementById('dmd').textContent=fmt(p.dist);
-  document.getElementById('dmb').textContent=Math.round(p.bearing)+'° '+card(p.bearing);
-  document.getElementById('dmxy').textContent=p.lat.toFixed(4)+', '+p.lng.toFixed(4);
-  document.getElementById('bpoi').style.display=p.type.cat==='city'?'':'none';
-  document.getElementById('nbl').classList.remove('on');
-  document.getElementById('nbi').innerHTML='';
+  S.detPOI = p;
+  document.getElementById('deti').textContent = p.type.emoji;
+  document.getElementById('detn').textContent = p.name;
+  document.getElementById('dett').textContent = p.type.label.toUpperCase();
+  document.getElementById('dmd').textContent = fmt(p.dist);
+  document.getElementById('dmb').textContent = Math.round(p.bearing)+'° '+card(p.bearing);
+  document.getElementById('dmxy').textContent = p.lat.toFixed(4)+', '+p.lng.toFixed(4);
+  // Reset tabs to Info
+  switchTab('info');
   document.getElementById('det').classList.add('on');
+  // Load info immediately
+  loadWikiInfo(p);
+  updateItinInfo();
 }
-function closeDet(){document.getElementById('det').classList.remove('on');}
-function goGMaps(){
-  const p=S.detPOI;if(!p)return;
-  window.open(`https://www.google.com/maps/dir/?api=1&origin=${S.lat},${S.lng}&destination=${p.lat},${p.lng}&travelmode=driving`,'_blank');
+
+function closeDet(){
+  document.getElementById('det').classList.remove('on');
 }
-async function loadNearby(){
-  const p=S.detPOI;if(!p)return;
-  const b=document.getElementById('bpoi');
-  b.textContent='⏳ Chargement…';b.disabled=true;
+
+function switchTab(tab){
+  document.getElementById('tabinfo').classList.toggle('on', tab==='info');
+  document.getElementById('tabitin').classList.toggle('on', tab==='itin');
+  document.getElementById('panelinfo').classList.toggle('on', tab==='info');
+  document.getElementById('panelihtin').classList.toggle('on', tab==='itin');
+}
+
+// ── ITINERARY ──────────────────────────────
+function selMode(btn){
+  document.querySelectorAll('.imode').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  itinMode = btn.dataset.mode;
+  document.getElementById('itingoico').textContent = ITIN_ICONS[itinMode];
+  updateItinInfo();
+}
+
+function updateItinInfo(){
+  const p = S.detPOI; if(!p) return;
+  const distKm = (p.dist/1000);
+  let timeStr = '—';
+  if(itinMode in ITIN_TIMES){
+    const mins = Math.round(distKm / ITIN_TIMES[itinMode] * 60);
+    timeStr = mins < 60 ? `~${mins} min` : `~${Math.round(mins/60*10)/10} h`;
+  } else {
+    timeStr = 'variable selon les horaires';
+  }
+  document.getElementById('itininfo').innerHTML =
+    `<b style="color:var(--tx)">${ITIN_ICONS[itinMode]} ${ITIN_LABELS[itinMode]}</b> · ${fmt(p.dist)}<br>` +
+    `Durée estimée : <span style="color:var(--c)">${timeStr}</span><br>` +
+    `Destination : ${p.lat.toFixed(4)}, ${p.lng.toFixed(4)}`;
+}
+
+function goItinerary(){
+  const p = S.detPOI; if(!p) return;
+  const origin = S.lat && S.lng ? `${S.lat},${S.lng}` : '';
+  const url = `https://www.google.com/maps/dir/?api=1` +
+    (origin ? `&origin=${origin}` : '') +
+    `&destination=${p.lat},${p.lng}&travelmode=${itinMode}`;
+  window.open(url, '_blank');
+}
+
+// ── WIKIPEDIA INFO ─────────────────────────
+async function loadWikiInfo(p){
+  wikiPageTitle = null;
+  document.getElementById('infophotos').innerHTML = '';
+  document.getElementById('infoextract').textContent = '';
+  document.getElementById('infowikilink').classList.remove('on');
+  document.getElementById('infonotfound').classList.remove('on');
+  document.getElementById('infoloading').classList.add('on');
+  document.getElementById('infonbl').innerHTML = '';
+
+  try {
+    // 1. Search Wikipedia in French
+    const searchName = encodeURIComponent(p.name);
+    const searchUrl = `https://fr.wikipedia.org/w/api.php?action=query&list=search&srsearch=${searchName}&srlimit=3&format=json&origin=*`;
+    const searchRes = await fetch(searchUrl).then(r=>r.json());
+    const hits = searchRes?.query?.search || [];
+
+    // Pick best hit: prefer exact match or first result
+    let pageTitle = null;
+    for(const h of hits){
+      if(h.title.toLowerCase().includes(p.name.toLowerCase()) ||
+         p.name.toLowerCase().includes(h.title.toLowerCase())){
+        pageTitle = h.title; break;
+      }
+    }
+    if(!pageTitle && hits.length) pageTitle = hits[0].title;
+
+    if(!pageTitle){
+      showInfoNotFound(); return;
+    }
+
+    wikiPageTitle = pageTitle;
+
+    // 2. Get page summary (extract + thumbnail)
+    const summaryUrl = `https://fr.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(pageTitle)}`;
+    const summary = await fetch(summaryUrl).then(r=>r.json());
+
+    document.getElementById('infoloading').classList.remove('on');
+
+    // Extract
+    const extract = summary.extract || '';
+    document.getElementById('infoextract').textContent =
+      extract.length > 600 ? extract.slice(0,600)+'…' : extract;
+
+    // Thumbnail from summary
+    const photos = [];
+    if(summary.thumbnail?.source) photos.push(summary.thumbnail.source);
+
+    // 3. Get more images from the page
+    const imgUrl = `https://fr.wikipedia.org/w/api.php?action=query&titles=${encodeURIComponent(pageTitle)}&prop=images&imlimit=10&format=json&origin=*`;
+    const imgRes = await fetch(imgUrl).then(r=>r.json());
+    const pages = imgRes?.query?.pages || {};
+    const imgList = Object.values(pages)[0]?.images || [];
+    const photoTitles = imgList
+      .map(i=>i.title)
+      .filter(t=>/\.(jpg|jpeg|png|webp)$/i.test(t) && !/flag|logo|icon|coat|blason|seal|map|carte|plan/i.test(t))
+      .slice(0,5);
+
+    // 4. Resolve image URLs
+    if(photoTitles.length){
+      const titlesParam = photoTitles.map(t=>encodeURIComponent(t)).join('|');
+      const urlRes = await fetch(`https://fr.wikipedia.org/w/api.php?action=query&titles=${titlesParam}&prop=imageinfo&iiprop=url&iiurlwidth=400&format=json&origin=*`).then(r=>r.json());
+      const imgPages = urlRes?.query?.pages || {};
+      for(const pg of Object.values(imgPages)){
+        const url = pg?.imageinfo?.[0]?.thumburl || pg?.imageinfo?.[0]?.url;
+        if(url && !photos.includes(url)) photos.push(url);
+      }
+    }
+
+    // Render photos
+    const photoEl = document.getElementById('infophotos');
+    photos.slice(0,6).forEach(src=>{
+      const img = document.createElement('img');
+      img.className = 'infophoto';
+      img.src = src;
+      img.loading = 'lazy';
+      img.onclick = ()=>window.open(src,'_blank');
+      img.onerror = ()=>img.remove();
+      photoEl.appendChild(img);
+    });
+
+    if(!extract && !photos.length){ showInfoNotFound(); return; }
+
+    // Wiki link button
+    document.getElementById('infowikilink').classList.add('on');
+    document.getElementById('infowikilink').textContent = `📖 Lire sur Wikipédia : ${pageTitle}`;
+
+    // 5. Load nearby places (OSM) if city
+    if(p.type.cat === 'city') loadNearbyInPanel(p);
+
+  } catch(e){
+    console.error('Wiki error', e);
+    showInfoNotFound();
+  }
+}
+
+function openWiki(){
+  if(wikiPageTitle)
+    window.open(`https://fr.wikipedia.org/wiki/${encodeURIComponent(wikiPageTitle)}`, '_blank');
+}
+
+function showInfoNotFound(){
+  document.getElementById('infoloading').classList.remove('on');
+  document.getElementById('infonotfound').classList.add('on');
+  // Still try nearby for cities
+  if(S.detPOI?.type?.cat === 'city') loadNearbyInPanel(S.detPOI);
+}
+
+async function loadNearbyInPanel(p){
+  const container = document.getElementById('infonbl');
+  container.innerHTML = '<div class="nbt">LIEUX À PROXIMITÉ</div><div id="nbiInner"></div>';
   const q=`[out:json][timeout:15];(
 node["tourism"~"^(attraction|museum|viewpoint|monument|castle)$"](around:3000,${p.lat},${p.lng});
 node["historic"~"^(castle|monument|ruins|church|memorial|archaeological_site)$"](around:3000,${p.lat},${p.lng});
@@ -967,24 +1211,29 @@ node["leisure"~"^(park|garden|nature_reserve)$"]["name"](around:3000,${p.lat},${
 node["natural"~"^(beach|cliff|peak)$"]["name"](around:3000,${p.lat},${p.lng});
 );out 20;`;
   try{
-    const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q}).then(r=>r.json());
-    const items=res.elements.filter(e=>e.tags?.name).map(e=>({name:e.tags.name,tags:e.tags}))
+    const res = await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q}).then(r=>r.json());
+    const items = res.elements.filter(e=>e.tags?.name)
+      .map(e=>({name:e.tags.name,tags:e.tags}))
       .filter((e,i,a)=>a.findIndex(x=>x.name===e.name)===i).slice(0,12);
-    const c=document.getElementById('nbi');c.innerHTML='';
-    if(!items.length){c.innerHTML='<div style="font-family:Space Mono,monospace;font-size:10px;color:var(--mu);padding:6px">Aucun lieu trouvé dans 3km.</div>';}
-    else items.forEach(it=>{
-      const{e,l}=clsNrb(it.tags);
-      const d=document.createElement('div');d.className='nbi';
-      d.innerHTML=`<span class="nbii">${e}</span><span class="nbin">${it.name}</span><span class="nbit">${l}</span>`;
-      d.onclick=()=>window.open(`https://www.google.com/maps/search/${encodeURIComponent(it.name+' '+p.name)}`,'_blank');
-      c.appendChild(d);
-    });
-    document.getElementById('nbl').classList.add('on');
+    const inner = document.getElementById('nbiInner');
+    if(!inner) return;
+    if(!items.length){
+      inner.innerHTML='<div style="font-size:10px;color:var(--mu);padding:4px">Aucun lieu trouvé dans 3 km.</div>';
+    } else {
+      items.forEach(it=>{
+        const{e,l}=clsNrb(it.tags);
+        const d=document.createElement('div'); d.className='nbi';
+        d.innerHTML=`<span class="nbii">${e}</span><span class="nbin">${it.name}</span><span class="nbit">${l}</span>`;
+        d.onclick=()=>window.open(`https://www.google.com/maps/search/${encodeURIComponent(it.name+' '+p.name)}`,'_blank');
+        inner.appendChild(d);
+      });
+    }
   }catch(e){
-    document.getElementById('nbi').innerHTML='<div style="color:var(--red);font-size:10px;padding:6px">Erreur réseau.</div>';
-    document.getElementById('nbl').classList.add('on');
-  }finally{b.textContent='🔍 Lieux à voir';b.disabled=false;}
+    const inner = document.getElementById('nbiInner');
+    if(inner) inner.innerHTML='<div style="color:var(--red);font-size:10px;padding:4px">Erreur réseau.</div>';
+  }
 }
+
 function clsNrb(t){
   const{tourism:to,historic:hi,amenity:a,leisure:le,natural:n}=t;
   if(to==='museum')return{e:'🏛',l:'Musée'};if(to==='viewpoint')return{e:'👁',l:'Panorama'};
