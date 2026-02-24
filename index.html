@@ -149,7 +149,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 #mmok:not(:disabled):active{opacity:.8}
 
 /* compass calibrate */
-#calw{position:fixed;top:136px;left:50%;transform:translateX(-50%);z-index:25;display:none;gap:5px;align-items:center;background:var(--sf);border:1px solid var(--cb);border-radius:20px;padding:5px 10px;backdrop-filter:blur(10px)}
+#calw{position:fixed;top:136px;left:50%;transform:translateX(-50%);z-index:25;display:none;gap:4px;align-items:center;background:var(--sf);border:1px solid var(--cb);border-radius:20px;padding:5px 8px;backdrop-filter:blur(10px);max-width:96vw;flex-wrap:wrap;justify-content:center}
 #calw.on{display:flex}
 #calw span{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu)}
 #calw button{font-family:'Space Mono',monospace;font-size:11px;background:none;border:1px solid var(--cb);border-radius:10px;color:var(--c);padding:3px 7px;cursor:pointer}
@@ -252,12 +252,14 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 
 <!-- Compass offset calibration -->
 <div id="calw">
-  <span>Offset:</span>
-  <button onclick="chOff(-10)">−10°</button>
-  <button onclick="chOff(-5)">−5°</button>
+  <button onclick="chOff(-45)" title="-45°">−45</button>
+  <button onclick="chOff(-15)">−15</button>
+  <button onclick="chOff(-5)">−5</button>
   <span id="offd">0°</span>
-  <button onclick="chOff(+5)">+5°</button>
-  <button onclick="chOff(+10)">+10°</button>
+  <button onclick="chOff(+5)">+5</button>
+  <button onclick="chOff(+15)">+15</button>
+  <button onclick="chOff(+45)" title="+45°">+45</button>
+  <button onclick="resetOff()" title="Reset">↺</button>
   <button onclick="toggleCal()">✕</button>
 </div>
 
@@ -392,7 +394,9 @@ const CATS = [
   {id:'site', lb:'📌 Lieux-dits',  cc:'#f472b6'},
 ];
 const FOV = 62, FOV2 = FOV/2; // ~62° = FOV horizontal réel smartphone
-const ALPHA = 0.06; // lissage boussole — plus bas = plus doux
+// Lissage boussole : moyenne glissante sur N échantillons
+// Plus N est grand = plus doux mais plus de latence
+const SMOOTH_N = 30;
 
 // ═══════════════════════════════════════════
 // STATE
@@ -582,18 +586,38 @@ function onOri(e){
     updRaw((360-e.alpha+360)%360);
     if(S.cSrc!=='rel'){
       S.cSrc='rel';
-      if(!cRelTimer) cRelTimer=setTimeout(()=>{
-        if(S.cSrc==='rel') document.getElementById('cwarn').style.display='block';
-      },3000);
+      // Avertissement immédiat pour boussole relative (Android sans abs)
+      showRelativeCompassWarning();
     }
   }
 }
+
+function showRelativeCompassWarning(){
+  const el = document.getElementById('cwarn');
+  el.innerHTML = '⚠ Boussole relative · Utilise ±offset pour calibrer';
+  el.style.display = 'block';
+  el.onclick = ()=>{ toggleCal(); };
+  // Aussi afficher un toast d'aide
+  showDbg(`⚠ Android : boussole relative — ajuste l'offset via le bouton orange`, 8000);
+}
+// Buffer circulaire pour la moyenne glissante
+const hBuf = [];
 function updRaw(r){
-  S.hRaw=r;
-  if(S.hSm==null){S.hSm=r;return;}
-  let d=r-S.hSm;
-  if(d>180)d-=360; if(d<-180)d+=360;
-  S.hSm=(S.hSm+ALPHA*d+360)%360;
+  S.hRaw = r;
+  // Initialisation : remplir le buffer
+  if(hBuf.length === 0){
+    for(let i=0;i<SMOOTH_N;i++) hBuf.push(r);
+    S.hSm = r; return;
+  }
+  hBuf.push(r);
+  if(hBuf.length > SMOOTH_N) hBuf.shift();
+  // Moyenne circulaire (évite le saut 359°→0°)
+  let sx=0, sy=0;
+  for(const h of hBuf){
+    sx += Math.cos(h*Math.PI/180);
+    sy += Math.sin(h*Math.PI/180);
+  }
+  S.hSm = (Math.atan2(sy,sx)*180/Math.PI+360)%360;
 }
 
 /**
@@ -616,6 +640,11 @@ function chOff(d){
   S.hOff=(S.hOff+d+360)%360;
   if(S.hOff>180)S.hOff-=360;
   document.getElementById('offd').textContent=(S.hOff>=0?'+':'')+S.hOff+'°';
+}
+function resetOff(){
+  S.hOff=0;
+  hBuf.length=0; // reset smoother too
+  document.getElementById('offd').textContent='0°';
 }
 
 // Manual heading (no sensor fallback)
@@ -760,21 +789,42 @@ relation["landuse"="forest"]["name"](around:${r},${lat},${lng});
   }
 }
 
+// Rang OSM : plus le rang est élevé, plus la ville est importante
+const PLACE_RANK = {city:6,town:5,village:4,hamlet:3,suburb:2,locality:1,isolated_dwelling:1};
+
 function processPOIs(els,ulat,ulng){
-  const seen=new Set(), res=[];
+  // 1. Collecter tous les candidats SANS dédup par nom
+  const candidates=[];
   for(const el of els){
     const eLat=el.lat??el.center?.lat;
     const eLng=el.lon??el.center?.lon;
     if(!eLat||!eLng)continue;
     const name=el.tags?.name||el.tags?.['name:fr'];
     if(!name)continue;
-    const key=name.toLowerCase().trim();
-    if(seen.has(key))continue;
-    seen.add(key);
     const dist=hav(ulat,ulng,eLat,eLng);
     if(dist<30)continue;
-    res.push({name,lat:eLat,lng:eLng,dist,bearing:brg(ulat,ulng,eLat,eLng),type:classify(el.tags,name)});
+    const type=classify(el.tags,name);
+    const rank=PLACE_RANK[el.tags?.place]??0;
+    candidates.push({name,lat:eLat,lng:eLng,dist,bearing:brg(ulat,ulng,eLat,eLng),type,rank,tags:el.tags});
   }
+
+  // 2. Pour les doublons de nom : garder le plus grand rang (city > hamlet)
+  //    En cas d'égalité de rang, garder le plus proche
+  const byName = new Map();
+  for(const c of candidates){
+    const key = c.name.toLowerCase().trim();
+    if(!byName.has(key)){
+      byName.set(key, c);
+    } else {
+      const prev = byName.get(key);
+      // Préférer plus grand rang, sinon plus proche
+      if(c.rank > prev.rank || (c.rank === prev.rank && c.dist < prev.dist)){
+        byName.set(key, c);
+      }
+    }
+  }
+
+  const res = Array.from(byName.values());
   res.sort((a,b)=>a.dist-b.dist);
 
   // Spatial dedup: distance minimale entre deux POIs de même catégorie
