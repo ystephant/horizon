@@ -33,11 +33,26 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 #cctr::after{content:'';position:absolute;bottom:0;left:50%;transform:translateX(-50%);width:5px;height:5px;background:var(--c);border-radius:50%}
 
 /* heading badge */
-#hdg{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:20;font-family:'Space Mono',monospace;font-size:13px;color:var(--c);background:var(--sf);border:1px solid var(--cb);border-radius:20px;padding:4px 14px;letter-spacing:.1em;backdrop-filter:blur(10px);pointer-events:none}
+#hdg{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:20;font-family:'Space Mono',monospace;font-size:13px;color:var(--c);background:var(--sf);border:1px solid var(--cb);border-radius:20px;padding:4px 14px;letter-spacing:.1em;backdrop-filter:blur(10px);cursor:pointer;transition:background .15s}
+#hdg:active{background:rgba(0,229,255,.2)}
+#hdg .htip{font-size:8px;color:var(--mu);letter-spacing:0;display:block;text-align:center;margin-top:1px}
+
+/* manual heading controls */
+#hmanual{position:fixed;top:98px;left:50%;transform:translateX(-50%);z-index:22;display:none;gap:6px;align-items:center;background:var(--sf);border:1px solid rgba(251,191,36,.4);border-radius:20px;padding:5px 10px;backdrop-filter:blur(10px)}
+#hmanual.on{display:flex}
+#hmanual span{font-family:'Space Mono',monospace;font-size:9px;color:var(--gold)}
+#hmanual button{font-family:'Space Mono',monospace;font-size:12px;background:none;border:1px solid rgba(251,191,36,.35);border-radius:10px;color:var(--gold);padding:3px 9px;cursor:pointer;transition:background .12s}
+#hmanual button:active{background:rgba(251,191,36,.15)}
 
 /* menu button */
 #mbtn{position:fixed;top:58px;left:12px;z-index:22;width:30px;height:30px;background:rgba(2,13,26,.75);border:1px solid var(--cb);border-radius:50%;cursor:pointer;backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;font-size:13px;color:var(--mu);transition:background .15s}
 #mbtn:active{background:rgba(0,229,255,.2)}
+
+/* diagnostic overlay */
+#diag{position:fixed;top:58px;right:8px;z-index:30;font-family:'Space Mono',monospace;font-size:9px;color:rgba(0,229,255,.7);background:rgba(2,13,26,.82);border:1px solid rgba(0,229,255,.18);border-radius:8px;padding:5px 8px;line-height:1.9;pointer-events:none;display:none}
+#diag.on{display:block}
+#dg1,#dg2,#dg3,#dg4{white-space:nowrap}
+.dgerr{color:var(--red)!important}.dgok{color:var(--gr)!important}.dgwarn{color:var(--gold)!important}
 
 /* poi labels */
 .poi{position:absolute;transform:translateX(-50%) translateY(-50%);display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transition:opacity .3s}
@@ -121,6 +136,10 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 /* compass warning */
 #cwarn{position:fixed;top:106px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(251,191,36,.12);border:1px solid rgba(251,191,36,.45);border-radius:20px;padding:5px 13px;font-family:'Space Mono',monospace;font-size:10px;color:var(--gold);pointer-events:auto;cursor:pointer;display:none}
 
+/* no-sensor banner */
+#nosensor{position:fixed;top:108px;left:50%;transform:translateX(-50%);z-index:26;background:rgba(255,77,109,.1);border:1px solid rgba(255,77,109,.4);border-radius:20px;padding:6px 14px;font-family:'Space Mono',monospace;font-size:10px;color:var(--red);pointer-events:none;display:none;white-space:nowrap;text-align:center}
+#nosensor.on{display:block}
+
 /* startup */
 #startup{position:fixed;inset:0;z-index:100;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:20px;padding:30px;overflow-y:auto}
 .slogo{font-family:'Syne',sans-serif;font-size:46px;font-weight:800;line-height:1;text-align:center}
@@ -193,9 +212,23 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 
 <!-- COMPASS -->
 <div id="cbar"><div id="ctrack"><div id="cctr"></div></div></div>
-<div id="hdg">---° N</div>
+<div id="hdg" onclick="onHdgTap()" title="Tap pour contrôle manuel si pas de boussole">---° N<span class="htip">tap ✎</span></div>
 <button id="mbtn" onclick="goMenu()">☰</button>
 <div id="cwarn" onclick="toggleCal()">⚠ Boussole non calibrée · tap ✕</div>
+<div id="nosensor">⚠ Boussole non détectée · contrôle manuel activé</div>
+
+<!-- Manual heading controls (shown when no sensor) -->
+<div id="hmanual">
+  <button onclick="rotH(-45)">−45°</button>
+  <button onclick="rotH(-15)">−15°</button>
+  <button onclick="rotH(-5)">−5°</button>
+  <span id="hmanval">0°</span>
+  <button onclick="rotH(+5)">+5°</button>
+  <button onclick="rotH(+15)">+15°</button>
+  <button onclick="rotH(+45)">+45°</button>
+</div>
+
+<!-- Compass offset calibration -->
 <div id="calw">
   <span>Offset:</span>
   <button onclick="chOff(-10)">−10°</button>
@@ -220,11 +253,20 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
   </div>
   <div id="pcnt">—</div>
   <button class="hbtn g" onclick="openMap()">📍</button>
+  <button class="hbtn" id="diagbtn" onclick="toggleDiag()" title="Diagnostic">🔍</button>
   <button class="hbtn" onclick="doRefresh()">↻</button>
 </div>
 
 <!-- DEBUG TOAST -->
 <div id="dbg"></div>
+
+<!-- DIAGNOSTIC OVERLAY -->
+<div id="diag">
+  <div id="dg1">CAP : —</div>
+  <div id="dg2">SRC : —</div>
+  <div id="dg3">GPS : —</div>
+  <div id="dg4">POIs : —</div>
+</div>
 
 <!-- LOADING -->
 <div id="ldr"><svg width="36" height="36" viewBox="0 0 36 36">
@@ -298,7 +340,7 @@ const CATS = [
   {id:'site', lb:'📌 Lieux-dits',  cc:'#f472b6'},
 ];
 const FOV = 75, FOV2 = FOV/2;
-const ALPHA = 0.15; // compass smoothing
+const ALPHA = 0.15;
 
 // ═══════════════════════════════════════════
 // STATE
@@ -306,16 +348,20 @@ const ALPHA = 0.15; // compass smoothing
 const S = {
   lat:null, lng:null,
   hRaw:null, hSm:null, hOff:0,
-  cSrc:null,
+  hManual:0,           // heading used when no sensor
+  cSrc:null,           // 'abs' | 'ios' | 'rel' | 'manual'
+  sensorOk:false,      // true once we receive a real sensor event
   gpsOk:false, gpsMan:false,
   allPOIs:[], pois:[],
   fetchLat:null, fetchLng:null,
-  maxD:50000, band:false,  // band=false: 0→maxD, band=true: 0.9→1.1×maxD
+  maxD:50000, band:false,
   cat:'all',
   detPOI:null,
+  diagOn:false,
 };
 let lmap=null, lmk=null, pLat=null, pLng=null;
 let cRelTimer=null;
+let sensorWatchdog=null;
 const poiEls=new Map();
 
 // ═══════════════════════════════════════════
@@ -325,7 +371,6 @@ function initApp(){
   const btn=document.getElementById('stbtn');
   btn.disabled=true; btn.textContent='Démarrage…';
 
-  // Dismiss startup immediately
   const st=document.getElementById('startup');
   st.style.transition='opacity .4s';
   st.style.opacity='0';
@@ -334,32 +379,34 @@ function initApp(){
   buildFilters();
   renderLoop();
 
-  // Camera (async, non-blocking)
+  // Camera
   if(navigator.mediaDevices?.getUserMedia){
     navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})
       .then(s=>{document.getElementById('cam').srcObject=s; setPerm('cam','ok');})
       .catch(()=>setPerm('cam','no'));
   } else setPerm('cam','no');
 
-  // GPS (async, non-blocking)
+  // GPS
   if(!navigator.geolocation){ setPerm('gps','no'); showGPSHelp('ns'); }
   else { setPerm('gps','wait'); startGPS(); }
 
   // Compass
-  if(typeof DeviceOrientationEvent!=='undefined' &&
-     typeof DeviceOrientationEvent.requestPermission==='function'){
-    DeviceOrientationEvent.requestPermission()
-      .then(p=>{
-        if(p==='granted'){
-          window.addEventListener('deviceorientation',onOri,true);
-          setPerm('cmp','ok');
-        } else setPerm('cmp','no');
-      }).catch(()=>setPerm('cmp','no'));
-  } else {
-    window.addEventListener('deviceorientationabsolute',onOriAbs,true);
-    window.addEventListener('deviceorientation',onOri,true);
-    setPerm('cmp','ok');
-  }
+  initCompass();
+
+  // Fallback: if GPS is already OK but POIs haven't loaded yet, force fetch
+  setTimeout(()=>{
+    if(S.gpsOk && S.allPOIs.length===0){
+      showDbg('↺ Chargement POIs retardé…');
+      fetchPOIs();
+    }
+  }, 4000);
+
+  // Sensor watchdog: if no compass event after 6s, switch to manual mode
+  sensorWatchdog = setTimeout(()=>{
+    if(!S.sensorOk){
+      activateManualHeading();
+    }
+  }, 6000);
 }
 
 function setPerm(id,s){
@@ -384,9 +431,18 @@ async function startGPS(){
     }catch(e){}
   }
   navigator.geolocation.getCurrentPosition(
-    pos=>{onGPS(pos);setPerm('gps','ok');document.getElementById('ghelp').classList.remove('on');
-      navigator.geolocation.watchPosition(onGPS,onGPSErr,{enableHighAccuracy:true,maximumAge:5000,timeout:20000});},
-    err=>{setPerm('gps','no');showGPSHelp(err.code);setDot('err');gtxt(gpsmsg(err.code)+' · 📍 tap');},
+    pos=>{
+      onGPS(pos);
+      setPerm('gps','ok');
+      document.getElementById('ghelp').classList.remove('on');
+      navigator.geolocation.watchPosition(onGPS,onGPSErr,{enableHighAccuracy:true,maximumAge:5000,timeout:20000});
+    },
+    err=>{
+      setPerm('gps','no');
+      showGPSHelp(err.code);
+      setDot('err');
+      gtxt(gpsmsg(err.code)+' · 📍 tap');
+    },
     {enableHighAccuracy:true,timeout:20000,maximumAge:0}
   );
 }
@@ -398,7 +454,7 @@ function onGPS(pos){
   const acc=Math.round(pos.coords.accuracy);
   gtxt(`${S.lat.toFixed(5)}, ${S.lng.toFixed(5)} ±${acc}m`);
   document.getElementById('mmgps').disabled=false;
-  const moved=S.fetchLat!=null?hav(S.lat,S.lng,S.fetchLat,S.fetchLng):Infinity;
+  const moved=S.fetchLat!=null ? hav(S.lat,S.lng,S.fetchLat,S.fetchLng) : Infinity;
   if(moved>150) fetchPOIs();
 }
 function onGPSErr(e){setDot('err');gtxt(gpsmsg(e.code));}
@@ -424,19 +480,55 @@ function showGPSHelp(c){
 // ═══════════════════════════════════════════
 // COMPASS
 // ═══════════════════════════════════════════
+function initCompass(){
+  if(typeof DeviceOrientationEvent!=='undefined' &&
+     typeof DeviceOrientationEvent.requestPermission==='function'){
+    // iOS 13+ — must be triggered by user gesture (already done via initApp button)
+    DeviceOrientationEvent.requestPermission()
+      .then(p=>{
+        if(p==='granted'){
+          window.addEventListener('deviceorientationabsolute',onOriAbs,true);
+          window.addEventListener('deviceorientation',onOri,true);
+          setPerm('cmp','ok');
+        } else {
+          setPerm('cmp','no');
+          showDbg('⚠ Boussole refusée (iOS) — mode manuel dans 6s', 5000);
+        }
+      }).catch(()=>{
+        setPerm('cmp','no');
+      });
+  } else {
+    window.addEventListener('deviceorientationabsolute',onOriAbs,true);
+    window.addEventListener('deviceorientation',onOri,true);
+    setPerm('cmp','ok');
+  }
+}
+
+function markSensorOk(){
+  if(S.sensorOk) return;
+  S.sensorOk = true;
+  if(sensorWatchdog){ clearTimeout(sensorWatchdog); sensorWatchdog=null; }
+  // Hide manual heading controls if sensor kicks in later
+  document.getElementById('nosensor').classList.remove('on');
+  document.getElementById('hmanual').classList.remove('on');
+}
+
 function onOriAbs(e){
   if(e.alpha==null)return;
+  markSensorOk();
   updRaw((360-e.alpha+360)%360);
   S.cSrc='abs'; hideCWarn();
 }
 function onOri(e){
   if(S.cSrc==='abs'){hideCWarn();return;}
   if(e.webkitCompassHeading!=null){
+    markSensorOk();
     updRaw(e.webkitCompassHeading); S.cSrc='ios'; hideCWarn(); return;
   }
   if(e.alpha!=null){
+    markSensorOk();
     updRaw((360-e.alpha+360)%360);
-    if(!S.cSrc){
+    if(S.cSrc!=='rel'){
       S.cSrc='rel';
       if(!cRelTimer) cRelTimer=setTimeout(()=>{
         if(S.cSrc==='rel') document.getElementById('cwarn').style.display='block';
@@ -451,7 +543,17 @@ function updRaw(r){
   if(d>180)d-=360; if(d<-180)d+=360;
   S.hSm=(S.hSm+ALPHA*d+360)%360;
 }
-function getH(){return S.hSm==null?null:(S.hSm+S.hOff+360)%360;}
+
+/**
+ * Returns the effective heading to use for AR rendering.
+ * Priority: sensor > manual
+ */
+function getH(){
+  if(S.hSm!=null) return (S.hSm+S.hOff+360)%360;
+  if(S.cSrc==='manual') return (S.hManual+360)%360;
+  return null;
+}
+
 function hideCWarn(){
   if(cRelTimer){clearTimeout(cRelTimer);cRelTimer=null;}
   document.getElementById('cwarn').style.display='none';
@@ -464,11 +566,34 @@ function chOff(d){
   document.getElementById('offd').textContent=(S.hOff>=0?'+':'')+S.hOff+'°';
 }
 
+// Manual heading (no sensor fallback)
+function activateManualHeading(){
+  if(S.sensorOk) return; // sensor already working, skip
+  S.cSrc='manual';
+  S.hManual=0;
+  document.getElementById('nosensor').classList.add('on');
+  document.getElementById('hmanual').classList.add('on');
+  showDbg('⚠ Boussole absente — utilise les boutons pour orienter', 6000);
+  setPerm('cmp','no');
+}
+function rotH(deg){
+  S.hManual=(S.hManual+deg+360)%360;
+  document.getElementById('hmanval').textContent=Math.round(S.hManual)+'°';
+}
+function onHdgTap(){
+  // If no sensor: toggle manual panel
+  if(!S.sensorOk || S.cSrc==='manual'){
+    document.getElementById('hmanual').classList.toggle('on');
+  } else {
+    // Sensor available: open calibration panel
+    toggleCal();
+  }
+}
+
 // ═══════════════════════════════════════════
 // FILTERS BUILD
 // ═══════════════════════════════════════════
 function buildFilters(){
-  // Categories
   const cr=document.getElementById('cfrow'); cr.innerHTML='';
   CATS.forEach(c=>{
     const b=document.createElement('button');
@@ -477,9 +602,7 @@ function buildFilters(){
     b.onclick=()=>selCat(c.id);
     cr.appendChild(b);
   });
-  // Distances
   const dr=document.getElementById('dfrow'); dr.innerHTML='';
-  // Band toggle
   const bt=document.createElement('button');
   bt.className='pill'+(S.band?' on':'');
   bt.id='btoggle'; bt.textContent=S.band?'📍 Bande ON':'📍 Bande OFF';
@@ -511,21 +634,18 @@ function selCat(id){
 function applyFilter(){
   let dMin=0, dMax=S.maxD;
   if(S.band && S.maxD>2000){ dMin=S.maxD*0.9; dMax=S.maxD*1.1; }
-
   const filtered=S.allPOIs.filter(p=>{
     if(p.dist<dMin||p.dist>dMax)return false;
     return S.cat==='all'||p.type.cat===S.cat;
   });
-
   S.pois=filtered.slice(0,80);
   poiEls.forEach(e=>e.remove()); poiEls.clear();
-
   const rng=S.band&&S.maxD>2000?`${fmt(dMin)}–${fmt(dMax)}`:`0–${fmt(dMax)}`;
   document.getElementById('pcnt').textContent=`${S.pois.length} pts · ${rng}`;
 }
 
 // ═══════════════════════════════════════════
-// FETCH POIs — split queries for reliability
+// FETCH POIs
 // ═══════════════════════════════════════════
 async function fetchPOIs(){
   if(!S.lat)return;
@@ -533,7 +653,6 @@ async function fetchPOIs(){
   document.getElementById('ldr').classList.add('on');
   const lat=S.lat, lng=S.lng, r=50000;
 
-  // Split into two queries: nodes (fast) + ways/relations (heavier)
   const q1=`[out:json][timeout:20];(
 node["place"~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"](around:${r},${lat},${lng});
 node["natural"~"^(peak|volcano|cape|bay|strait|cliff|peninsula|headland)$"]["name"](around:${r},${lat},${lng});
@@ -618,7 +737,6 @@ function doRefresh(){S.fetchLat=null;if(S.gpsOk)fetchPOIs();}
 // ═══════════════════════════════════════════
 function openMap(){
   document.getElementById('mmap').classList.add('on');
-  // Enable GPS button if we have coords
   document.getElementById('mmgps').disabled=!S.gpsOk;
   setTimeout(()=>{
     if(!lmap){
@@ -627,7 +745,6 @@ function openMap(){
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{
         attribution:'© OpenStreetMap',maxZoom:19
       }).addTo(lmap);
-
       lmap.on('click',e=>{
         pLat=e.latlng.lat; pLng=e.latlng.lng;
         setMapMarker(pLat,pLng);
@@ -636,7 +753,6 @@ function openMap(){
     } else {
       lmap.invalidateSize();
     }
-    // If we have a position, show it
     if(S.lat&&!lmk){
       setMapMarker(S.lat,S.lng);
       pLat=S.lat; pLng=S.lng;
@@ -665,18 +781,13 @@ function useGPSPos(){
   setMapMarker(pLat,pLng);
   document.getElementById('mmok').disabled=false;
 }
-
-function closeMap(){
-  document.getElementById('mmap').classList.remove('on');
-}
-
+function closeMap(){document.getElementById('mmap').classList.remove('on');}
 function confirmPos(){
   if(pLat==null)return;
   S.lat=pLat; S.lng=pLng; S.gpsOk=true; S.gpsMan=true;
   setDot('mn');
   gtxt(`📍 Manuel : ${S.lat.toFixed(4)}, ${S.lng.toFixed(4)}`);
   closeMap();
-  // Recalculate all POI distances from new position
   S.allPOIs.forEach(p=>{
     p.dist=hav(S.lat,S.lng,p.lat,p.lng);
     p.bearing=brg(S.lat,S.lng,p.lat,p.lng);
@@ -684,6 +795,51 @@ function confirmPos(){
   S.allPOIs.sort((a,b)=>a.dist-b.dist);
   S.fetchLat=null;
   fetchPOIs();
+}
+
+// ═══════════════════════════════════════════
+// DIAGNOSTIC OVERLAY
+// ═══════════════════════════════════════════
+function toggleDiag(){
+  S.diagOn=!S.diagOn;
+  document.getElementById('diag').classList.toggle('on',S.diagOn);
+  document.getElementById('diagbtn').style.borderColor=S.diagOn?'var(--c)':'';
+}
+
+function updateDiag(h){
+  if(!S.diagOn)return;
+  const d1=document.getElementById('dg1');
+  const d2=document.getElementById('dg2');
+  const d3=document.getElementById('dg3');
+  const d4=document.getElementById('dg4');
+
+  // Heading
+  if(h!==null){
+    d1.textContent=`CAP : ${Math.round(h)}° ${card(h)}`;
+    d1.className='dgok';
+  } else {
+    d1.textContent='CAP : PAS DE BOUSSOLE';
+    d1.className='dgerr';
+  }
+
+  // Source
+  const srcMap={abs:'absolute ✓',ios:'iOS webkit ✓',rel:'relatif ⚠',manual:'MANUEL',null:'— aucune'};
+  const srcColor={abs:'dgok',ios:'dgok',rel:'dgwarn',manual:'dgwarn',null:'dgerr'};
+  d2.textContent=`SRC : ${srcMap[S.cSrc]||'—'}`;
+  d2.className=srcColor[S.cSrc]||'dgerr';
+
+  // GPS
+  if(S.gpsOk){
+    d3.textContent=`GPS : ${S.lat?.toFixed(4)}, ${S.lng?.toFixed(4)}${S.gpsMan?' (manuel)':''}`;
+    d3.className=S.gpsMan?'dgwarn':'dgok';
+  } else {
+    d3.textContent='GPS : INACTIF';
+    d3.className='dgerr';
+  }
+
+  // POIs
+  d4.textContent=`POIs : ${S.pois.length} affichés / ${S.allPOIs.length} chargés`;
+  d4.className=S.allPOIs.length>0?'dgok':'dgerr';
 }
 
 // ═══════════════════════════════════════════
@@ -700,6 +856,10 @@ const TOPS=[28,35,42,22,48];
 
 function renderLoop(){
   const h=getH();
+
+  // Always update diagnostic
+  updateDiag(h);
+
   if(!cpBuilt){
     const tr=document.getElementById('ctrack');
     CPS.forEach(p=>{
@@ -710,6 +870,7 @@ function renderLoop(){
     });
     cpBuilt=true;
   }
+
   if(h!==null){
     const W=document.getElementById('ctrack').offsetWidth;
     document.querySelectorAll('.clbl').forEach(e=>{
@@ -720,9 +881,19 @@ function renderLoop(){
       e.style.opacity=Math.max(0,1-Math.abs(df)/FOV2*.8);
     });
     const hi=Math.round(h);
-    document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)}`;
-    if(S.gpsOk) updPOIs(h);
+    document.getElementById('hdg').childNodes[0].textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)}`;
+
+    // Only render POIs if GPS is available
+    if(S.gpsOk){
+      updPOIs(h);
+    }
+  } else {
+    // No heading yet — still render POIs if we have GPS
+    // (they will appear centred without azimuth filtering)
+    // Uncomment below if you want static POI list visible without compass:
+    // if(S.gpsOk) updPOIsStatic();
   }
+
   requestAnimationFrame(renderLoop);
 }
 
@@ -743,7 +914,6 @@ function updPOIs(h){
     e.style.left=(W/2+(df/FOV2)*(W/2))+'px';
     const a=Math.abs(df);
     e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
-    // Connector height: closer = longer (more "grounded"), farther = shorter
     const ch=Math.max(18,Math.round(55*(1-Math.min(p.dist/S.maxD,1))));
     e.querySelector('.poc').style.height=ch+'px';
   }
