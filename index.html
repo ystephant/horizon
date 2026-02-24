@@ -159,6 +159,38 @@
     #loading-ring.on{display:block}
     #loading-ring svg{animation:spin 1s linear infinite}
     @keyframes spin{to{transform:rotate(360deg)}}
+
+    /* ── BACK/MENU BUTTON ── */
+    #menu-btn{
+      position:fixed; top:56px; left:12px;
+      z-index:22; width:32px; height:32px;
+      background:rgba(2,13,26,.75); border:1px solid var(--cyan-border);
+      border-radius:50%; cursor:pointer; backdrop-filter:blur(8px);
+      display:flex; align-items:center; justify-content:center;
+      font-size:14px; transition:background .15s; color:var(--muted);
+    }
+    #menu-btn:active{background:rgba(0,229,255,.2)}
+
+    /* ── QUIT CONFIRM ── */
+    #quit-overlay{
+      position:fixed; inset:0; z-index:300;
+      background:rgba(2,13,26,.92); backdrop-filter:blur(8px);
+      display:none; flex-direction:column;
+      align-items:center; justify-content:center; gap:16px;
+    }
+    #quit-overlay.visible{display:flex}
+    #quit-box{
+      background:var(--surface); border:1px solid var(--cyan-border);
+      border-radius:20px; padding:28px 32px;
+      text-align:center; max-width:280px;
+    }
+    #quit-box h2{font-size:22px;font-weight:800;margin-bottom:6px}
+    #quit-box p{font-family:'Space Mono',monospace;font-size:11px;color:var(--muted);margin-bottom:20px}
+    .quit-btns{display:flex;gap:10px}
+    .quit-btn{flex:1;border:none;border-radius:12px;padding:12px;font-family:'Syne',sans-serif;font-size:14px;font-weight:800;cursor:pointer;transition:opacity .15s}
+    .quit-btn:active{opacity:.75}
+    #quit-cancel{background:rgba(0,229,255,.1);border:1px solid var(--cyan-border);color:var(--cyan)}
+    #quit-confirm{background:var(--red);color:white}
   </style>
 </head>
 <body>
@@ -189,6 +221,7 @@
     <button id="gps-retry-btn" onclick="retryGPS()">↺ Réessayer</button>
   </div>
   <button id="start-btn" onclick="initApp()">Démarrer</button>
+  <button onclick="showQuit()" style="background:none;border:none;font-family:'Space Mono',monospace;font-size:10px;color:var(--muted);cursor:pointer;padding:4px;letter-spacing:.05em;text-decoration:underline">Quitter l'application</button>
 </div>
 
 <!-- ══════ CAMERA ══════ -->
@@ -216,6 +249,21 @@
   <button onclick="changeOffset(+1)">+1°</button>
   <button onclick="changeOffset(+5)">+5°</button>
   <button onclick="toggleCalibrate()">✕</button>
+</div>
+
+<!-- ══════ MENU / BACK BUTTON ══════ -->
+<button id="menu-btn" onclick="showStartup()" title="Menu">☰</button>
+
+<!-- ══════ QUIT OVERLAY ══════ -->
+<div id="quit-overlay">
+  <div id="quit-box">
+    <h2>Quitter ?</h2>
+    <p>L'application sera fermée.</p>
+    <div class="quit-btns">
+      <button class="quit-btn" id="quit-cancel" onclick="hideQuit()">Annuler</button>
+      <button class="quit-btn" id="quit-confirm" onclick="quitApp()">Quitter</button>
+    </div>
+  </div>
 </div>
 
 <!-- ══════ FILTERS ══════ -->
@@ -346,65 +394,59 @@ let pendingManualLat = null, pendingManualLng = null;
 // ══════════════════════════════════════════════════════════
 //  INIT
 // ══════════════════════════════════════════════════════════
-async function initApp() {
+function initApp() {
   const btn = document.getElementById('start-btn');
-  btn.disabled = true; btn.textContent = 'Initialisation…';
+  btn.disabled = true; btn.textContent = 'Démarrage…';
 
-  // ── Camera (with 8s timeout — never block forever) ──
-  try {
-    const camPromise = navigator.mediaDevices.getUserMedia({
-      video:{facingMode:{ideal:'environment'}, width:{ideal:1280}}, audio:false
+  // ── Dismiss startup IMMEDIATELY — never block ──
+  const startup = document.getElementById('startup');
+  startup.style.transition = 'opacity .4s';
+  startup.style.opacity = '0';
+  setTimeout(() => startup.style.display = 'none', 400);
+
+  // ── Start render loop right away ──
+  buildFilters();
+  buildScaleRings();
+  renderLoop();
+
+  // ── Camera — async, non-blocking ──
+  if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+    navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'}}, audio:false
+    }).then(stream => {
+      document.getElementById('camera-feed').srcObject = stream;
+      setPermStatus('camera','ok');
+    }).catch(e => {
+      setPermStatus('camera','denied');
+      console.warn('Camera:', e.message);
     });
-    const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error('timeout')), 8000)
-    );
-    const stream = await Promise.race([camPromise, timeoutPromise]);
-    document.getElementById('camera-feed').srcObject = stream;
-    setPermStatus('camera','ok');
-  } catch(e) {
-    // Camera failed — continue anyway (app still works without it)
+  } else {
     setPermStatus('camera','denied');
-    console.warn('Camera unavailable:', e.message);
-    // Show dark background instead
-    document.getElementById('camera-feed').style.display = 'none';
-    document.body.style.background = 'linear-gradient(180deg,#020d1a 0%,#041428 100%)';
   }
 
-  // ── GPS (fire and forget — never blocks startup) ──
+  // ── GPS — async, non-blocking ──
   if (!navigator.geolocation) {
     setPermStatus('gps','denied'); showGPSHelp('not_supported');
   } else {
     setPermStatus('gps','waiting'); startGPS();
   }
 
-  // ── Compass ──
+  // ── Compass — iOS needs requestPermission (user gesture already happened) ──
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof DeviceOrientationEvent.requestPermission === 'function') {
-    try {
-      const p = await Promise.race([
-        DeviceOrientationEvent.requestPermission(),
-        new Promise(r => setTimeout(() => r('timeout'), 5000))
-      ]);
+    DeviceOrientationEvent.requestPermission().then(p => {
       if (p === 'granted') {
         window.addEventListener('deviceorientation', onOrientation, true);
         setPermStatus('compass','ok');
-      } else { setPermStatus('compass', p === 'timeout' ? 'waiting' : 'denied'); }
-    } catch(e) { setPermStatus('compass','denied'); }
+      } else {
+        setPermStatus('compass','denied');
+      }
+    }).catch(() => setPermStatus('compass','denied'));
   } else {
     window.addEventListener('deviceorientationabsolute', onOrientationAbsolute, true);
     window.addEventListener('deviceorientation', onOrientation, true);
     setPermStatus('compass','ok');
   }
-
-  buildFilters();
-  buildScaleRings();
-
-  // ── Always dismiss startup ──
-  const startup = document.getElementById('startup');
-  startup.style.transition = 'opacity .5s';
-  startup.style.opacity = '0';
-  setTimeout(() => startup.style.display = 'none', 500);
-  renderLoop();
 }
 
 // ══════════════════════════════════════════════════════════
