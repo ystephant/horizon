@@ -350,36 +350,45 @@ async function initApp() {
   const btn = document.getElementById('start-btn');
   btn.disabled = true; btn.textContent = 'Initialisation…';
 
-  // Camera
+  // ── Camera (with 8s timeout — never block forever) ──
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video:{facingMode:'environment', width:{ideal:1280}, height:{ideal:720}}, audio:false
+    const camPromise = navigator.mediaDevices.getUserMedia({
+      video:{facingMode:{ideal:'environment'}, width:{ideal:1280}}, audio:false
     });
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error('timeout')), 8000)
+    );
+    const stream = await Promise.race([camPromise, timeoutPromise]);
     document.getElementById('camera-feed').srcObject = stream;
     setPermStatus('camera','ok');
   } catch(e) {
+    // Camera failed — continue anyway (app still works without it)
     setPermStatus('camera','denied');
-    alert('Caméra non disponible : ' + e.message);
-    btn.disabled = false; btn.textContent = 'Démarrer';
-    return;
+    console.warn('Camera unavailable:', e.message);
+    // Show dark background instead
+    document.getElementById('camera-feed').style.display = 'none';
+    document.body.style.background = 'linear-gradient(180deg,#020d1a 0%,#041428 100%)';
   }
 
-  // GPS
+  // ── GPS (fire and forget — never blocks startup) ──
   if (!navigator.geolocation) {
     setPermStatus('gps','denied'); showGPSHelp('not_supported');
   } else {
     setPermStatus('gps','waiting'); startGPS();
   }
 
-  // Compass
+  // ── Compass ──
   if (typeof DeviceOrientationEvent !== 'undefined' &&
       typeof DeviceOrientationEvent.requestPermission === 'function') {
     try {
-      const p = await DeviceOrientationEvent.requestPermission();
+      const p = await Promise.race([
+        DeviceOrientationEvent.requestPermission(),
+        new Promise(r => setTimeout(() => r('timeout'), 5000))
+      ]);
       if (p === 'granted') {
         window.addEventListener('deviceorientation', onOrientation, true);
         setPermStatus('compass','ok');
-      } else { setPermStatus('compass','denied'); }
+      } else { setPermStatus('compass', p === 'timeout' ? 'waiting' : 'denied'); }
     } catch(e) { setPermStatus('compass','denied'); }
   } else {
     window.addEventListener('deviceorientationabsolute', onOrientationAbsolute, true);
@@ -390,6 +399,7 @@ async function initApp() {
   buildFilters();
   buildScaleRings();
 
+  // ── Always dismiss startup ──
   const startup = document.getElementById('startup');
   startup.style.transition = 'opacity .5s';
   startup.style.opacity = '0';
@@ -629,7 +639,11 @@ function buildFilters() {
   DISTANCES.forEach(d => {
     const btn = document.createElement('button');
     btn.className = 'dist-pill' + (d.value === state.maxDist ? ' active' : '');
-    btn.textContent = d.label;
+    // For > 2km show "~Xkm" to hint at band mode
+    btn.textContent = d.value > 2000 ? '~' + d.label : d.label;
+    btn.title = d.value > 2000
+      ? `Affiche entre ${fmtDist(d.value*0.9)} et ${fmtDist(d.value*1.1)}`
+      : `Affiche de 0 à ${fmtDist(d.value*1.15)}`;
     btn.addEventListener('click', () => selectDist(d.value));
     distBar.appendChild(btn);
   });
@@ -647,28 +661,34 @@ function selectDist(m) {
   applyFilter();
 }
 
+function distBand(d) {
+  // Returns [minDist, maxDist] for a given distance value
+  // ≤ 2km: show 0 → d*1.1 (everything nearby)
+  // > 2km: show d*0.9 → d*1.1 (band around the distance)
+  if (d <= 2000) return [0, d * 1.15];
+  return [d * 0.9, d * 1.1];
+}
+
 function applyFilter() {
-  // Filter by distance AND category
+  const [dMin, dMax] = distBand(state.maxDist);
+
   let filtered = state.allPois.filter(p => {
-    if (p.dist > state.maxDist) return false;
+    if (p.dist < dMin || p.dist > dMax) return false;
     if (state.activeCat === 'all') return true;
     return p.type.cat === state.activeCat;
   });
 
-  // Bucketed display: ensure we show POIs across all distance ranges, not just nearby
-  // Divide max distance into 5 buckets, take top N per bucket
-  const bucketSize = state.maxDist / 5;
-  const maxPerBucket = 12;
-  const buckets = Array.from({length:5}, () => []);
-  filtered.forEach(p => {
-    const bi = Math.min(4, Math.floor(p.dist / bucketSize));
-    if (buckets[bi].length < maxPerBucket) buckets[bi].push(p);
-  });
-  state.pois = buckets.flat();
+  // Cap at 60 results, sorted by distance
+  state.pois = filtered.slice(0, 60);
 
   poiElements.forEach(el => el.remove());
   poiElements.clear();
-  document.getElementById('poi-count').textContent = `${state.pois.length} pt${state.pois.length !== 1 ? 's' : ''}`;
+
+  const bandLabel = state.maxDist > 2000
+    ? `${fmtDist(dMin)}–${fmtDist(dMax)}`
+    : `0–${fmtDist(dMax)}`;
+  document.getElementById('poi-count').textContent =
+    `${state.pois.length} pt${state.pois.length !== 1 ? 's' : ''} · ${bandLabel}`;
 }
 
 // ══════════════════════════════════════════════════════════
