@@ -27,12 +27,13 @@ body{
   overflow:hidden;
 }
 
+/* FIX: suppression du transform CSS — le positionnement est géré entièrement en JS */
 .poi{
   position:absolute;
-  will-change:transform;
-  transform:translate3d(-50%,0,0);
+  will-change:left,top;
   transition:opacity .2s ease;
   pointer-events:none;
+  /* translate(-50%,0) appliqué via JS pour ne pas entrer en conflit */
 }
 
 .pob{
@@ -71,6 +72,33 @@ body{
   font-size:16px;
   display:block;
 }
+
+/* Indicateur de statut GPS/Boussole */
+#status{
+  position:fixed;
+  top:12px;
+  left:50%;
+  transform:translateX(-50%);
+  background:rgba(0,0,0,.7);
+  padding:6px 14px;
+  border-radius:20px;
+  font-size:12px;
+  backdrop-filter:blur(6px);
+  z-index:10;
+  display:flex;
+  gap:10px;
+  align-items:center;
+}
+#status span{ opacity:.6; }
+#status b{ opacity:1; }
+#dot-gps, #dot-compass{
+  width:8px; height:8px;
+  border-radius:50%;
+  background:#555;
+  display:inline-block;
+}
+#dot-gps.ok{ background:#00e5ff; }
+#dot-compass.ok{ background:#00ff88; }
 </style>
 </head>
 
@@ -78,6 +106,12 @@ body{
 
 <div id="ar">
   <div id="poic"></div>
+</div>
+
+<div id="status">
+  <span id="dot-gps"></span><b id="lbl-gps">GPS…</b>
+  &nbsp;
+  <span id="dot-compass"></span><b id="lbl-compass">Boussole…</b>
 </div>
 
 <div id="cfocus">
@@ -119,12 +153,13 @@ const STATE = {
   headingRaw:null,
   headingSmooth:null,
   gpsReady:false,
+  compassReady:false,
   pois:[],
   visible:[],
   altitudeCache:new Map(),
   lastFetchLat:null,
-  lastFetchLng:null,
-  lastHeading:null
+  lastFetchLng:null
+  // NOTE: STATE.lastHeading supprimé — il bloquait le rendu
 };
 
 const POI_POOL = [];
@@ -181,37 +216,78 @@ navigator.geolocation.watchPosition(pos=>{
   STATE.alt = newAlt;
   STATE.gpsReady = true;
 
-},{enableHighAccuracy:true});
+  // Recalculer les bearings des POI avec la nouvelle position
+  if(STATE.pois.length){
+    for(const p of STATE.pois){
+      p.bearing = bearing(newLat,newLng,p.lat,p.lng);
+      p.dist = haversine(newLat,newLng,p.lat,p.lng);
+    }
+  }
+
+  document.getElementById("dot-gps").classList.add("ok");
+  document.getElementById("lbl-gps").textContent =
+    newLat.toFixed(4)+", "+newLng.toFixed(4);
+
+},err=>{
+  document.getElementById("lbl-gps").textContent = "GPS erreur "+err.code;
+},{
+  enableHighAccuracy:true,
+  maximumAge:0,
+  timeout:15000
+});
 
 /* ======================================================
    COMPASS + SMOOTHING
 ====================================================== */
 
-window.addEventListener("deviceorientation",e=>{
-
-  let heading = null;
-
-  if(e.webkitCompassHeading != null){
-    heading = e.webkitCompassHeading;
-  }else if(e.alpha != null){
-    heading = (360 - e.alpha) % 360;
+function requestCompassPermission(){
+  if(typeof DeviceOrientationEvent !== "undefined" &&
+     typeof DeviceOrientationEvent.requestPermission === "function"){
+    DeviceOrientationEvent.requestPermission()
+      .then(state=>{
+        if(state==="granted") listenOrientation();
+      })
+      .catch(console.error);
+  }else{
+    listenOrientation();
   }
+}
 
-  if(heading != null){
-    if(STATE.headingSmooth == null){
-      STATE.headingSmooth = heading;
-    }else{
-      let delta = heading - STATE.headingSmooth;
-      if(delta > 180) delta -= 360;
-      if(delta < -180) delta += 360;
-      STATE.headingSmooth = (STATE.headingSmooth + delta * 0.15 + 360) % 360;
+function listenOrientation(){
+  window.addEventListener("deviceorientation",e=>{
+
+    let heading = null;
+
+    if(e.webkitCompassHeading != null){
+      heading = e.webkitCompassHeading;
+    }else if(e.alpha != null){
+      heading = (360 - e.alpha) % 360;
     }
-    STATE.headingRaw = heading;
-  }
 
-  STATE.pitch = e.beta || 0;
+    if(heading != null){
+      if(STATE.headingSmooth == null){
+        STATE.headingSmooth = heading;
+      }else{
+        let delta = heading - STATE.headingSmooth;
+        if(delta > 180) delta -= 360;
+        if(delta < -180) delta += 360;
+        STATE.headingSmooth = (STATE.headingSmooth + delta * 0.15 + 360) % 360;
+      }
+      STATE.headingRaw = heading;
+      STATE.compassReady = true;
 
-});
+      document.getElementById("dot-compass").classList.add("ok");
+      document.getElementById("lbl-compass").textContent =
+        Math.round(STATE.headingSmooth)+"°";
+    }
+
+    STATE.pitch = e.beta || 0;
+  });
+}
+
+// Démarrage immédiat (iOS demande permission au clic si nécessaire)
+document.addEventListener("click", requestCompassPermission, {once:true});
+requestCompassPermission();
 
 /* ======================================================
    OVERPASS PRO MULTI-CATEGORIES
@@ -390,7 +466,9 @@ function computeScore(p,df,verticalAngle){
 }
 
 /* ======================================================
-   RENDER ENGINE GPU
+   RENDER ENGINE — FIX PRINCIPAL
+   Utilise left/top au lieu de transform pour ne pas
+   écraser le translate CSS et bloquer le mouvement.
 ====================================================== */
 
 function render(){
@@ -399,12 +477,8 @@ function render(){
 
   if(!STATE.gpsReady || STATE.headingSmooth == null) return;
 
-  if(STATE.lastHeading &&
-     Math.abs(normalize(STATE.headingSmooth - STATE.lastHeading)) < 0.1){
-    return;
-  }
-
-  STATE.lastHeading = STATE.headingSmooth;
+  // FIX: suppression du guard STATE.lastHeading qui gelait les POI
+  // sur les appareils avec résolution angulaire limitée
 
   const W = window.innerWidth;
   const H = window.innerHeight;
@@ -418,13 +492,13 @@ function render(){
     if(Math.abs(df) > CONFIG.FOV2) continue;
 
     const altitude = p.alt ?? 0;
-    const verticalAngle = deg(Math.atan2(altitude - STATE.alt,p.dist));
+    const verticalAngle = deg(Math.atan2(altitude - STATE.alt, p.dist));
 
     const screenY = H/2 - (verticalAngle - STATE.pitch) * 8;
 
     const score = computeScore(p,df,verticalAngle);
 
-    visible.push({...p,df,screenY,score});
+    visible.push({...p, df, screenY, score});
   }
 
   visible.sort((a,b)=>b.score - a.score);
@@ -438,10 +512,15 @@ function render(){
     const el = getPOIElement(p.id);
     activeIds.add(p.id);
 
+    // FIX: utilisation de left/top au lieu de transform
+    // pour éviter l'écrasement du translate(-50%,0) CSS.
+    // Le centrage horizontal est géré par marginLeft:-50%.
     const x = W/2 + (p.df / CONFIG.FOV2) * (W/2);
 
-    el.style.transform = `translate3d(${x}px,${p.screenY}px,0)`;
-    el.style.opacity = 1;
+    el.style.left     = x + "px";
+    el.style.top      = p.screenY + "px";
+    el.style.transform = "translate(-50%, 0)";
+    el.style.opacity  = 1;
 
     el.querySelector(".name").textContent = p.name;
     el.querySelector(".dist").textContent =
