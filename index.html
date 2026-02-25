@@ -678,110 +678,140 @@ function classifyByName(name){
   return null; // inconnu → sera classifié comme ville par défaut
 }
 
-// Source 1 : Wikipédia GeoSearch (FR puis EN) — rapide, gratuit, pas de clé
-async function fetchWikipedia(lat,lng,radiusM){
-  // Wikipedia: max 10 000m par requête.
-  // Pour couvrir de plus grands rayons on crée une grille de points d'ancrage
-  // espacés de ~14km (diagonal = 10km) autour de la position centrale.
-  const WR = 10000; // rayon max Wikipedia
-  const seen=new Set(); const items=[];
-
-  // Génère les points d'ancrage couvrant radiusM
-  function anchorPoints(cLat, cLng, totalR){
-    const pts=[{lat:cLat,lng:cLng}];
-    if(totalR<=WR) return pts;
-    // Grille hexagonale ~14km entre centres
-    const step = 0.125; // ~14km en degrés lat
-    const cols = Math.ceil(totalR/1000/14);
-    for(let dx=-cols;dx<=cols;dx++){
-      for(let dy=-cols;dy<=cols;dy++){
-        if(dx===0&&dy===0) continue;
-        const aLat=cLat+dy*step;
-        const aLng=cLng+dx*step/Math.cos(cLat*Math.PI/180);
-        // N'inclure que si le point d'ancrage est dans le rayon total
-        if(hav(cLat,cLng,aLat,aLng)<totalR)
-          pts.push({lat:aLat,lng:aLng});
-      }
-    }
-    return pts;
+// ── Fetch helper avec timeout et log d'erreur ───────────────────────────
+async function safeFetch(url, opts={}, timeoutMs=10000, label=''){
+  const ctrl = new AbortController();
+  const tid = setTimeout(()=>ctrl.abort(), timeoutMs);
+  try{
+    const r = await fetch(url, {...opts, signal:ctrl.signal});
+    clearTimeout(tid);
+    if(!r.ok){ showDbg(`⚠ ${label} HTTP ${r.status}`); return null; }
+    return await r.json();
+  }catch(e){
+    clearTimeout(tid);
+    const reason = e.name==='AbortError'?'timeout':e.message||'erreur réseau';
+    showDbg(`⚠ ${label}: ${reason}`, 4000);
+    return null;
   }
-
-  const anchors = anchorPoints(lat,lng,radiusM);
-  // Limite à 9 ancres max pour ne pas surcharger
-  const usedAnchors = anchors.slice(0,9);
-
-  // Lance tous les appels Wikipedia (fr) en parallèle
-  const fetches = usedAnchors.map(a => {
-    const url=`https://fr.wikipedia.org/w/api.php?action=query&list=geosearch`+
-      `&gsradius=${WR}&gslatitude=${a.lat}&gslongitude=${a.lng}&gslimit=500`+
-      `&format=json&origin=*`;
-    const ctrl=new AbortController();
-    setTimeout(()=>ctrl.abort(),9000);
-    return fetch(url,{signal:ctrl.signal})
-      .then(r=>r.ok?r.json():null)
-      .catch(()=>null);
-  });
-
-  const results = await Promise.all(fetches);
-  for(const data of results){
-    for(const p of data?.query?.geosearch||[]){
-      if(seen.has(p.pageid)) continue;
-      seen.add(p.pageid);
-      // Recalculer la distance réelle depuis la position utilisateur
-      const realDist = hav(lat,lng,p.lat,p.lon);
-      if(realDist > radiusM*1.1) continue; // hors rayon
-      items.push({name:p.title, lat:p.lat, lng:p.lon, dist:realDist});
-    }
-  }
-  return items;
 }
 
-// Source 2 : Overpass allégé — uniquement nodes "place" (très rapide)
+// Source 1 : Overpass — nodes "place" + natural (très précis)
 async function fetchOverpassLight(lat,lng,radiusM){
-  const r=Math.min(radiusM*1.5, 100000);
-  const q=`[out:json][timeout:15];(
+  const r = Math.min(radiusM*1.5, 100000);
+  const q = `[out:json][timeout:20];(
 node["place"~"^(city|town|village|hamlet|suburb|island|islet|locality)$"](around:${r},${lat},${lng});
 node["natural"~"^(peak|volcano|cape|bay|beach|cliff)$"]["name"](around:${r},${lat},${lng});
 node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
 );out 600;`;
-  const APIS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+  const APIS = [
+    'https://overpass-api.de/api/interpreter',
+    'https://overpass.kumi.systems/api/interpreter',
+    'https://maps.mail.ru/osm/tools/overpass/api/interpreter'
+  ];
   for(const api of APIS){
-    try{
-      const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),17000);
-      const resp=await fetch(api,{method:'POST',body:q,signal:ctrl.signal});
-      clearTimeout(tid);
-      if(!resp.ok) continue;
-      const data=await resp.json();
-      return data.elements||[];
-    }catch(e){}
+    showDbg(`⏳ OSM: ${api.split('/')[2]}…`);
+    const data = await safeFetch(api, {method:'POST', body:q}, 22000, 'Overpass');
+    if(data?.elements?.length){ showDbg(`✓ OSM: ${data.elements.length} éléments`); return data.elements; }
   }
+  showDbg('⚠ Overpass indisponible');
   return [];
 }
 
+// Source 2 : Wikipédia GeoSearch (FR puis EN)
+async function fetchWikipedia(lat,lng,radiusM){
+  const WR = 10000;
+  const seen = new Set(); const items = [];
+
+  function anchorPoints(cLat,cLng,totalR){
+    const pts=[{lat:cLat,lng:cLng}];
+    if(totalR<=WR) return pts;
+    const step=0.125;
+    const cols=Math.ceil(totalR/1000/14);
+    for(let dx=-cols;dx<=cols;dx++)
+      for(let dy=-cols;dy<=cols;dy++){
+        if(dx===0&&dy===0) continue;
+        const aLat=cLat+dy*step;
+        const aLng=cLng+dx*step/Math.cos(cLat*Math.PI/180);
+        if(hav(cLat,cLng,aLat,aLng)<totalR) pts.push({lat:aLat,lng:aLng});
+      }
+    return pts.slice(0,9);
+  }
+
+  for(const lang of ['fr','en']){
+    const anchors = anchorPoints(lat,lng,radiusM);
+    showDbg(`⏳ Wikipedia ${lang} (${anchors.length} zones)…`);
+    const fetches = anchors.map(a=>{
+      const url=`https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch`+
+        `&gsradius=${WR}&gslatitude=${a.lat}&gslongitude=${a.lng}&gslimit=500`+
+        `&format=json&origin=*`;
+      return safeFetch(url, {}, 12000, `Wiki-${lang}`);
+    });
+    const results = await Promise.all(fetches);
+    let added=0;
+    for(const data of results){
+      for(const p of data?.query?.geosearch||[]){
+        if(seen.has(p.pageid)) continue;
+        seen.add(p.pageid);
+        const realDist=hav(lat,lng,p.lat,p.lon);
+        if(realDist>radiusM*1.1) continue;
+        items.push({name:p.title,lat:p.lat,lng:p.lon,dist:realDist});
+        added++;
+      }
+    }
+    if(added>0){ showDbg(`✓ Wiki-${lang}: ${added} lieux`); break; }
+    showDbg(`⚠ Wiki-${lang}: 0 résultats, essai suivant…`);
+  }
+  return items;
+}
+
+// Source 3 : Nominatim (OpenStreetMap geocoder) — fallback très fiable
+async function fetchNominatim(lat,lng,radiusM){
+  // Nominatim search dans une bounding box
+  const deg = radiusM/111000;
+  const bbox = `${lng-deg},${lat-deg},${lng+deg},${lat+deg}`;
+  const url = `https://nominatim.openstreetmap.org/search`+
+    `?format=json&limit=200&bounded=1&viewbox=${bbox}`+
+    `&featuretype=settlement&accept-language=fr`;
+  showDbg('⏳ Nominatim…');
+  const data = await safeFetch(url, {headers:{'User-Agent':'HorizonAR/1.0'}}, 12000, 'Nominatim');
+  if(!data?.length){ showDbg('⚠ Nominatim: 0 résultats'); return []; }
+  showDbg(`✓ Nominatim: ${data.length} lieux`);
+  return data.filter(e=>e.lat&&e.lon&&e.display_name).map(e=>({
+    name: e.name || e.display_name.split(',')[0],
+    lat: parseFloat(e.lat), lng: parseFloat(e.lon),
+    dist: hav(lat,lng,parseFloat(e.lat),parseFloat(e.lon)),
+    tags: {place: e.type||e.class}
+  }));
+}
+
 async function fetchPOIs(){
-  if(!S.lat)return;
-  showDbg('🔍 Recherche POIs…');
+  if(!S.lat) return;
+  showDbg('🔍 Recherche POIs…', 60000);
   document.getElementById('ldr').classList.add('on');
   const lat=S.lat, lng=S.lng;
   const radiusM=Math.min(100000, Math.max(5000, S.maxD*1.5));
 
-  // Wikipedia: max 10 000m par appel → on fait N appels décalés si rayon > 10km
-  // Overpass : couvre tout le rayon → les deux en PARALLÈLE
-  const [wikiItems, ovItems] = await Promise.all([
-    fetchWikipedia(lat, lng, radiusM),
-    fetchOverpassLight(lat, lng, radiusM)
+  // Lancer Overpass + Wikipedia en parallèle
+  const [ovItems, wikiItems] = await Promise.all([
+    fetchOverpassLight(lat, lng, radiusM),
+    fetchWikipedia(lat, lng, radiusM)
   ]);
+
+  // Fallback Nominatim si les deux sources principales sont vides
+  let nomItems = [];
+  if(!ovItems.length && !wikiItems.length){
+    nomItems = await fetchNominatim(lat, lng, radiusM);
+  }
 
   document.getElementById('ldr').classList.remove('on');
 
-  const total = wikiItems.length + ovItems.length;
+  const total = wikiItems.length + ovItems.length + nomItems.length;
   if(!total){
-    showDbg('❌ Aucune donnée – vérifie ta connexion internet');
+    showDbg('❌ Aucune source disponible – réseau ou APIs inaccessibles', 8000);
     return;
   }
-  showDbg(`✓ Wikipedia:${wikiItems.length} + OSM:${ovItems.length}`);
-  processPOIs(wikiItems, ovItems, lat, lng);
+  showDbg(`✓ OSM:${ovItems.length} Wiki:${wikiItems.length} Nom:${nomItems.length}`);
+  processPOIs(wikiItems, [...ovItems, ...nomItems], lat, lng);
   S.fetchLat=lat; S.fetchLng=lng;
 }
 
