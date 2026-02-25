@@ -566,72 +566,142 @@ function applyFilter(){
 }
 
 // ═══════════════════════════════════════════
-// FETCH POIs — requête unique rapide + miroir
 // ═══════════════════════════════════════════
+// FETCH POIs — Wikipédia (primaire) + Overpass allégé (fallback)
+// ═══════════════════════════════════════════
+
+// Classifie un lieu d'après son nom (pour Wikipédia)
+function classifyByName(name){
+  const n=name.toLowerCase();
+  if(/\bphare\b/.test(n))                                        return{emoji:'🗼',label:'Phare',cat:'lh'};
+  if(/\b(île|îles|îlot|ile |iles |ilot|island|atoll)/.test(n))  return{emoji:'🏝️',label:'Île',cat:'isle'};
+  if(/\b(mont|montagne|pic |sommet|volcan|puy |col |massif)/.test(n))return{emoji:'⛰️',label:'Sommet',cat:'mount'};
+  if(/(^cap |^cap-|\bcap\b|pointe |^raz |presqu.île|péninsule|pointe-|headland)/.test(n))return{emoji:'🗺️',label:'Cap / Pointe',cat:'coast'};
+  if(/\b(baie|golfe|anse |rade |fjord)/.test(n))                 return{emoji:'🌊',label:'Baie',cat:'coast'};
+  if(/\bdétroit\b/.test(n))                                      return{emoji:'〰️',label:'Détroit',cat:'coast'};
+  if(/\b(falaise|cliffs?)\b/.test(n))                            return{emoji:'🪨',label:'Falaise',cat:'coast'};
+  if(/\b(forêt|bois |woods?|forest)/.test(n))                    return{emoji:'🌲',label:'Forêt',cat:'wood'};
+  if(/\b(plage|beach|spiaggia)/.test(n))                          return{emoji:'🏖',label:'Plage',cat:'beach'};
+  if(/\b(lieu-dit|lieudit|hameau|écart|lieu dit)/.test(n))       return{emoji:'📌',label:'Lieu-dit',cat:'site'};
+  return null; // inconnu → sera classifié comme ville par défaut
+}
+
+// Source 1 : Wikipédia GeoSearch (FR puis EN) — rapide, gratuit, pas de clé
+async function fetchWikipedia(lat,lng,radiusM){
+  const r=Math.min(10000, radiusM); // Wikipedia limite à 10 000m par requête
+  // On fait jusqu'à 3 passes avec des rayons croissants si besoin
+  const radii=[Math.min(r,5000), Math.min(r,10000)].filter((v,i,a)=>a.indexOf(v)===i);
+  const seen=new Set(); const items=[];
+  for(const rad of radii){
+    for(const lang of ['fr','en']){
+      const url=`https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch`+
+        `&gsradius=${rad}&gslatitude=${lat}&gslongitude=${lng}&gslimit=500`+
+        `&format=json&origin=*`;
+      try{
+        const ctrl=new AbortController();
+        const tid=setTimeout(()=>ctrl.abort(),8000);
+        const resp=await fetch(url,{signal:ctrl.signal});
+        clearTimeout(tid);
+        if(!resp.ok) continue;
+        const data=await resp.json();
+        for(const p of data?.query?.geosearch||[]){
+          if(seen.has(p.pageid)) continue;
+          seen.add(p.pageid);
+          items.push({name:p.title, lat:p.lat, lng:p.lon, dist:p.dist});
+        }
+      }catch(e){}
+    }
+  }
+  return items;
+}
+
+// Source 2 : Overpass allégé — uniquement nodes "place" (très rapide)
+async function fetchOverpassLight(lat,lng,radiusM){
+  const r=Math.min(radiusM*1.5, 100000);
+  const q=`[out:json][timeout:15];(
+node["place"~"^(city|town|village|hamlet|suburb|island|islet|locality)$"](around:${r},${lat},${lng});
+node["natural"~"^(peak|volcano|cape|bay|beach|cliff)$"]["name"](around:${r},${lat},${lng});
+node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
+);out 600;`;
+  const APIS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+  for(const api of APIS){
+    try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),17000);
+      const resp=await fetch(api,{method:'POST',body:q,signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!resp.ok) continue;
+      const data=await resp.json();
+      return data.elements||[];
+    }catch(e){}
+  }
+  return [];
+}
+
 async function fetchPOIs(){
   if(!S.lat)return;
   showDbg('🔍 Recherche POIs…');
   document.getElementById('ldr').classList.add('on');
   const lat=S.lat, lng=S.lng;
-  // Rayon adapté à la distance sélectionnée (min 5km, max 100km)
-  const r=Math.min(100000, Math.max(5000, Math.round(S.maxD * 1.5)));
+  const radiusM=Math.min(100000, Math.max(5000, S.maxD*1.5));
 
-  const q=`[out:json][timeout:20];(
-node["place"~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"](around:${r},${lat},${lng});
-node["natural"~"^(peak|volcano|cape|bay|strait|cliff|peninsula|headland|beach)$"]["name"](around:${r},${lat},${lng});
-node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
-node["place"~"^(island|islet)$"]["name"](around:${r},${lat},${lng});
-node["leisure"="beach_resort"]["name"](around:${r},${lat},${lng});
-node["tourism"="beach"]["name"](around:${r},${lat},${lng});
-way["natural"~"^(wood|peak|cape|peninsula|beach)$"]["name"](around:${r},${lat},${lng});
-way["landuse"="forest"]["name"](around:${r},${lat},${lng});
-way["place"~"^(island|islet)$"]["name"](around:${r},${lat},${lng});
-relation["place"~"^(island|islet)$"]["name"](around:${r},${lat},${lng});
-);out center 800;`;
+  // --- Source 1 : Wikipédia ---
+  const wikiItems = await fetchWikipedia(lat, lng, radiusM);
+  showDbg(`📖 Wikipedia: ${wikiItems.length} lieux`);
 
-  const APIS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
-  let data=null;
-  for(const api of APIS){
-    try{
-      const ctrl=new AbortController();
-      const tid=setTimeout(()=>ctrl.abort(),22000);
-      const resp=await fetch(api,{method:'POST',body:q,signal:ctrl.signal});
-      clearTimeout(tid);
-      if(!resp.ok) continue;
-      data=await resp.json();
-      break;
-    }catch(e){ showDbg(api.includes('kumi')?'⚠ Miroir 2…':'⚠ Serveur principal lent, bascule…'); }
-  }
+  // --- Source 2 : Overpass allégé (en parallèle) ---
+  const ovItems = await fetchOverpassLight(lat, lng, radiusM);
+  showDbg(`🗺 Overpass: ${ovItems.length} nodes`);
 
   document.getElementById('ldr').classList.remove('on');
-  if(!data){ showDbg('❌ Aucun serveur Overpass disponible'); return; }
-  showDbg(`✓ ${data.elements?.length||0} éléments reçus`);
-  processPOIs(data.elements||[], lat, lng);
+
+  if(!wikiItems.length && !ovItems.length){
+    showDbg('❌ Aucune donnée disponible – vérifie ta connexion');
+    return;
+  }
+
+  processPOIs(wikiItems, ovItems, lat, lng);
   S.fetchLat=lat; S.fetchLng=lng;
 }
 
-function processPOIs(els,ulat,ulng){
+function processPOIs(wikiItems, ovEls, ulat, ulng){
   const seen=new Set(), res=[];
-  for(const el of els){
+
+  // Traiter les données Overpass (ground truth : tags OSM précis)
+  for(const el of ovEls){
     const eLat=el.lat??el.center?.lat;
     const eLng=el.lon??el.center?.lon;
-    if(!eLat||!eLng)continue;
+    if(!eLat||!eLng) continue;
     const name=el.tags?.name||el.tags?.['name:fr'];
-    if(!name)continue;
+    if(!name) continue;
     const key=name.toLowerCase().trim();
-    if(seen.has(key))continue;
+    if(seen.has(key)) continue;
     seen.add(key);
     const dist=hav(ulat,ulng,eLat,eLng);
-    if(dist<30)continue;
-    res.push({name,lat:eLat,lng:eLng,dist,bearing:brg(ulat,ulng,eLat,eLng),type:classify(el.tags,name)});
+    if(dist<30) continue;
+    res.push({name,lat:eLat,lng:eLng,dist,bearing:brg(ulat,ulng,eLat,eLng),type:classifyOSM(el.tags,name)});
   }
+
+  // Compléter avec Wikipédia (lieux non déjà présents via Overpass)
+  for(const w of wikiItems){
+    const key=w.name.toLowerCase().trim();
+    if(seen.has(key)) continue;
+    seen.add(key);
+    const dist=hav(ulat,ulng,w.lat,w.lng);
+    if(dist<30) continue;
+    const typeGuess=classifyByName(w.name);
+    const type=typeGuess||{emoji:'🏙️',label:'Ville',cat:'city'};
+    res.push({name:w.name,lat:w.lat,lng:w.lng,dist,bearing:brg(ulat,ulng,w.lat,w.lng),type});
+  }
+
   res.sort((a,b)=>a.dist-b.dist);
   S.allPOIs=res;
   showDbg(`✓ ${res.length} POIs traités`);
   applyFilter();
 }
 
-function classify(t,name){
+// Classifie via tags OSM (source Overpass)
+function classifyOSM(t,name){
   if(!t)return{emoji:'📍',label:'Lieu',cat:'all'};
   const p=t.place,n=t.natural,m=t.man_made,lu=t.landuse;
   const nm=(name||'').toLowerCase();
@@ -641,7 +711,7 @@ function classify(t,name){
   if(n==='peak'||n==='volcano')return{emoji:'⛰️',label:'Sommet',cat:'mount'};
   if(n==='cape'||n==='peninsula'||n==='headland'||
      nm.startsWith('pointe')||nm.startsWith('cap ')||nm.startsWith('cap-')||
-     nm.includes("presqu'île")||nm.includes('tas de'))
+     nm.includes("presqu'île"))
     return{emoji:'🗺️',label:'Cap / Pointe',cat:'coast'};
   if(n==='bay')return{emoji:'🌊',label:'Baie',cat:'coast'};
   if(n==='strait')return{emoji:'〰️',label:'Détroit',cat:'coast'};
@@ -653,6 +723,9 @@ function classify(t,name){
   if(n==='beach'||t?.leisure==='beach_resort'||t?.tourism==='beach')return{emoji:'🏖',label:'Plage',cat:'beach'};
   return{emoji:'📍',label:'Lieu',cat:'all'};
 }
+
+// Alias pour compatibilité (classify reste utilisé nulle part mais on garde)
+function classify(t,n){return classifyOSM(t,n);}
 
 function doRefresh(){
   S.fetchLat=null;
