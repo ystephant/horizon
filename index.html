@@ -918,20 +918,12 @@ function renderLoop(){
     const hi=Math.round(h);
     const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
     document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}`;
-    if(S.gpsOk && S.pois.length) throttledUpdPOIs(h);
+    if(S.gpsOk && S.pois.length) updPOIs(h);
   } else if(S.gpsOk && S.pois.length) {
     // Pas de boussole : on affiche quand même les POIs triés par distance
-    throttledUpdPOIs(null);
+    updPOIs(null);
   }
   requestAnimationFrame(renderLoop);
-}
-
-let _lastPOIUpdate = 0;
-function throttledUpdPOIs(h) {
-  const now = Date.now();
-  if(now - _lastPOIUpdate < 120) return; // max ~8 updates/sec
-  _lastPOIUpdate = now;
-  updPOIs(h);
 }
 
 function updPOIs(h){
@@ -946,9 +938,11 @@ function updPOIs(h){
     if(useHeading && Math.abs(df)>FOV2*1.2) continue;
     vis.push({p, df});
   }
+  const toRemove=[];
   for(const[n,e]of poiEls){
-    if(!vis.find(v=>v.p.name===n)){e.remove();poiEls.delete(n);}
+    if(!vis.find(v=>v.p.name===n)) toRemove.push(n);
   }
+  toRemove.forEach(n=>{poiEls.get(n)?.remove();poiEls.delete(n);});
   for(const{p,df}of vis){
     let e=poiEls.get(p.name);
     if(!e){e=buildPOI(p);document.getElementById('poic').appendChild(e);poiEls.set(p.name,e);}
