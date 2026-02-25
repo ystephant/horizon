@@ -321,7 +321,7 @@ const S = {
   gpsOk:false, gpsMan:false,
   allPOIs:[], pois:[],
   fetchLat:null, fetchLng:null,
-  maxD:50000, band:true,   // band=true: strict window around selected distance
+  maxD:10000, band:false,  // band=false: montre de 0 à maxD
   bandPct:0.20,            // ±20% by default (e.g. 50km → 40-60km)
   cat:'all',
   detPOI:null,
@@ -588,28 +588,57 @@ function classifyByName(name){
 
 // Source 1 : Wikipédia GeoSearch (FR puis EN) — rapide, gratuit, pas de clé
 async function fetchWikipedia(lat,lng,radiusM){
-  const r=Math.min(10000, radiusM); // Wikipedia limite à 10 000m par requête
-  // On fait jusqu'à 3 passes avec des rayons croissants si besoin
-  const radii=[Math.min(r,5000), Math.min(r,10000)].filter((v,i,a)=>a.indexOf(v)===i);
+  // Wikipedia: max 10 000m par requête.
+  // Pour couvrir de plus grands rayons on crée une grille de points d'ancrage
+  // espacés de ~14km (diagonal = 10km) autour de la position centrale.
+  const WR = 10000; // rayon max Wikipedia
   const seen=new Set(); const items=[];
-  for(const rad of radii){
-    for(const lang of ['fr','en']){
-      const url=`https://${lang}.wikipedia.org/w/api.php?action=query&list=geosearch`+
-        `&gsradius=${rad}&gslatitude=${lat}&gslongitude=${lng}&gslimit=500`+
-        `&format=json&origin=*`;
-      try{
-        const ctrl=new AbortController();
-        const tid=setTimeout(()=>ctrl.abort(),8000);
-        const resp=await fetch(url,{signal:ctrl.signal});
-        clearTimeout(tid);
-        if(!resp.ok) continue;
-        const data=await resp.json();
-        for(const p of data?.query?.geosearch||[]){
-          if(seen.has(p.pageid)) continue;
-          seen.add(p.pageid);
-          items.push({name:p.title, lat:p.lat, lng:p.lon, dist:p.dist});
-        }
-      }catch(e){}
+
+  // Génère les points d'ancrage couvrant radiusM
+  function anchorPoints(cLat, cLng, totalR){
+    const pts=[{lat:cLat,lng:cLng}];
+    if(totalR<=WR) return pts;
+    // Grille hexagonale ~14km entre centres
+    const step = 0.125; // ~14km en degrés lat
+    const cols = Math.ceil(totalR/1000/14);
+    for(let dx=-cols;dx<=cols;dx++){
+      for(let dy=-cols;dy<=cols;dy++){
+        if(dx===0&&dy===0) continue;
+        const aLat=cLat+dy*step;
+        const aLng=cLng+dx*step/Math.cos(cLat*Math.PI/180);
+        // N'inclure que si le point d'ancrage est dans le rayon total
+        if(hav(cLat,cLng,aLat,aLng)<totalR)
+          pts.push({lat:aLat,lng:aLng});
+      }
+    }
+    return pts;
+  }
+
+  const anchors = anchorPoints(lat,lng,radiusM);
+  // Limite à 9 ancres max pour ne pas surcharger
+  const usedAnchors = anchors.slice(0,9);
+
+  // Lance tous les appels Wikipedia (fr) en parallèle
+  const fetches = usedAnchors.map(a => {
+    const url=`https://fr.wikipedia.org/w/api.php?action=query&list=geosearch`+
+      `&gsradius=${WR}&gslatitude=${a.lat}&gslongitude=${a.lng}&gslimit=500`+
+      `&format=json&origin=*`;
+    const ctrl=new AbortController();
+    setTimeout(()=>ctrl.abort(),9000);
+    return fetch(url,{signal:ctrl.signal})
+      .then(r=>r.ok?r.json():null)
+      .catch(()=>null);
+  });
+
+  const results = await Promise.all(fetches);
+  for(const data of results){
+    for(const p of data?.query?.geosearch||[]){
+      if(seen.has(p.pageid)) continue;
+      seen.add(p.pageid);
+      // Recalculer la distance réelle depuis la position utilisateur
+      const realDist = hav(lat,lng,p.lat,p.lon);
+      if(realDist > radiusM*1.1) continue; // hors rayon
+      items.push({name:p.title, lat:p.lat, lng:p.lon, dist:realDist});
     }
   }
   return items;
@@ -645,21 +674,21 @@ async function fetchPOIs(){
   const lat=S.lat, lng=S.lng;
   const radiusM=Math.min(100000, Math.max(5000, S.maxD*1.5));
 
-  // --- Source 1 : Wikipédia ---
-  const wikiItems = await fetchWikipedia(lat, lng, radiusM);
-  showDbg(`📖 Wikipedia: ${wikiItems.length} lieux`);
-
-  // --- Source 2 : Overpass allégé (en parallèle) ---
-  const ovItems = await fetchOverpassLight(lat, lng, radiusM);
-  showDbg(`🗺 Overpass: ${ovItems.length} nodes`);
+  // Wikipedia: max 10 000m par appel → on fait N appels décalés si rayon > 10km
+  // Overpass : couvre tout le rayon → les deux en PARALLÈLE
+  const [wikiItems, ovItems] = await Promise.all([
+    fetchWikipedia(lat, lng, radiusM),
+    fetchOverpassLight(lat, lng, radiusM)
+  ]);
 
   document.getElementById('ldr').classList.remove('on');
 
-  if(!wikiItems.length && !ovItems.length){
-    showDbg('❌ Aucune donnée disponible – vérifie ta connexion');
+  const total = wikiItems.length + ovItems.length;
+  if(!total){
+    showDbg('❌ Aucune donnée – vérifie ta connexion internet');
     return;
   }
-
+  showDbg(`✓ Wikipedia:${wikiItems.length} + OSM:${ovItems.length}`);
   processPOIs(wikiItems, ovItems, lat, lng);
   S.fetchLat=lat; S.fetchLng=lng;
 }
@@ -841,7 +870,10 @@ function renderLoop(){
     });
     const hi=Math.round(h);
     document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)}`;
-    if(S.gpsOk && S.pois.length) throttledUpdPOIs(h || 0);
+    if(S.gpsOk && S.pois.length) throttledUpdPOIs(h);
+  } else if(S.gpsOk && S.pois.length) {
+    // Pas de boussole : on affiche quand même les POIs triés par distance
+    throttledUpdPOIs(null);
   }
   requestAnimationFrame(renderLoop);
 }
