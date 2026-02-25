@@ -229,6 +229,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
   </div>
   <div id="pcnt">—</div>
   <button class="hbtn g" onclick="openMap()">📍</button>
+  <button class="hbtn" id="srchbtn" onclick="doRefresh()" title="Rechercher les POIs">🔍</button>
   <button class="hbtn" onclick="doRefresh()">↻</button>
 </div>
 
@@ -516,7 +517,7 @@ function buildFilters(){
     b.textContent=d.l;
     b.onclick=()=>{
       S.maxD=d.v;
-      document.querySelectorAll('#dfrow .pill:not(#btoggle)').forEach((x,i)=>x.classList.toggle('on',DISTS[i].v===d.v));
+      document.querySelectorAll('#dfrow .pill:not(#bwpill)').forEach((x,i)=>x.classList.toggle('on',DISTS[i].v===d.v));
       applyFilter();
     };
     dr.appendChild(b);
@@ -565,50 +566,48 @@ function applyFilter(){
 }
 
 // ═══════════════════════════════════════════
-// FETCH POIs — split queries for reliability
+// FETCH POIs — requête unique rapide + miroir
 // ═══════════════════════════════════════════
 async function fetchPOIs(){
   if(!S.lat)return;
   showDbg('🔍 Recherche POIs…');
   document.getElementById('ldr').classList.add('on');
-  const lat=S.lat, lng=S.lng, r=100000;
+  const lat=S.lat, lng=S.lng;
+  // Rayon adapté à la distance sélectionnée (min 5km, max 100km)
+  const r=Math.min(100000, Math.max(5000, Math.round(S.maxD * 1.5)));
 
-  // Split into two queries: nodes (fast) + ways/relations (heavier)
-  const q1=`[out:json][timeout:25];(
+  const q=`[out:json][timeout:20];(
 node["place"~"^(city|town|village|hamlet|suburb|locality|isolated_dwelling)$"](around:${r},${lat},${lng});
 node["natural"~"^(peak|volcano|cape|bay|strait|cliff|peninsula|headland|beach)$"]["name"](around:${r},${lat},${lng});
 node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
 node["place"~"^(island|islet)$"]["name"](around:${r},${lat},${lng});
 node["leisure"="beach_resort"]["name"](around:${r},${lat},${lng});
 node["tourism"="beach"]["name"](around:${r},${lat},${lng});
-);out 600;`;
-
-  const q2=`[out:json][timeout:30];(
-way["natural"~"^(wood|peak|cape|peninsula|headland|beach)$"]["name"](around:${r},${lat},${lng});
+way["natural"~"^(wood|peak|cape|peninsula|beach)$"]["name"](around:${r},${lat},${lng});
 way["landuse"="forest"]["name"](around:${r},${lat},${lng});
 way["place"~"^(island|islet)$"]["name"](around:${r},${lat},${lng});
-way["leisure"="beach_resort"]["name"](around:${r},${lat},${lng});
-relation["natural"~"^(wood|peak|beach)$"]["name"](around:${r},${lat},${lng});
 relation["place"~"^(island|islet)$"]["name"](around:${r},${lat},${lng});
-relation["landuse"="forest"]["name"](around:${r},${lat},${lng});
-);out center 300;`;
+);out center 800;`;
 
-  try{
-    const [r1,r2]=await Promise.allSettled([
-      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q1}).then(r=>r.json()),
-      fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:q2}).then(r=>r.json()),
-    ]);
-    const els1=r1.status==='fulfilled'?r1.value.elements:[];
-    const els2=r2.status==='fulfilled'?r2.value.elements:[];
-    showDbg(`✓ ${els1.length+els2.length} éléments reçus`);
-    processPOIs([...els1,...els2],lat,lng);
-    S.fetchLat=lat; S.fetchLng=lng;
-  }catch(e){
-    showDbg('❌ Erreur réseau Overpass');
-    console.error(e);
-  }finally{
-    document.getElementById('ldr').classList.remove('on');
+  const APIS=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+  let data=null;
+  for(const api of APIS){
+    try{
+      const ctrl=new AbortController();
+      const tid=setTimeout(()=>ctrl.abort(),22000);
+      const resp=await fetch(api,{method:'POST',body:q,signal:ctrl.signal});
+      clearTimeout(tid);
+      if(!resp.ok) continue;
+      data=await resp.json();
+      break;
+    }catch(e){ showDbg(api.includes('kumi')?'⚠ Miroir 2…':'⚠ Serveur principal lent, bascule…'); }
   }
+
+  document.getElementById('ldr').classList.remove('on');
+  if(!data){ showDbg('❌ Aucun serveur Overpass disponible'); return; }
+  showDbg(`✓ ${data.elements?.length||0} éléments reçus`);
+  processPOIs(data.elements||[], lat, lng);
+  S.fetchLat=lat; S.fetchLng=lng;
 }
 
 function processPOIs(els,ulat,ulng){
@@ -655,7 +654,11 @@ function classify(t,name){
   return{emoji:'📍',label:'Lieu',cat:'all'};
 }
 
-function doRefresh(){S.fetchLat=null;if(S.gpsOk)fetchPOIs();}
+function doRefresh(){
+  S.fetchLat=null;
+  if(S.gpsOk) fetchPOIs();
+  else showDbg('📍 Position non définie — utilise la carte');
+}
 
 // ═══════════════════════════════════════════
 // MAP MODAL
@@ -781,6 +784,7 @@ function throttledUpdPOIs(h) {
 function updPOIs(h){
   const W=window.innerWidth;
   const vis=[];
+  let bestDf=Infinity, bestPOI=null;  // FIX: was undefined → ReferenceError
   // If no compass, show all POIs centered (sorted by distance)
   const useHeading = h !== null;
   const effectiveH = h || 0;
