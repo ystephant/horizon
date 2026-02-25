@@ -40,7 +40,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 #mbtn:active{background:rgba(0,229,255,.2)}
 
 /* poi labels */
-.poi{position:absolute;display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transition:opacity .3s,left .06s linear;transform:translateX(-50%)}
+.poi{position:absolute;display:flex;flex-direction:column;align-items:center;pointer-events:auto;cursor:pointer;transition:opacity .2s}
 /* center crosshair POI badge */
 #cfocus{position:fixed;top:50%;left:50%;transform:translate(-50%,-120%);z-index:22;
   background:rgba(2,18,34,.92);border:1px solid var(--c);border-radius:12px;
@@ -196,9 +196,95 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 #ldr.on{display:block}
 #ldr svg{animation:spin 1s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
+
+/* permission overlay */
+#permov{position:fixed;inset:0;z-index:150;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:28px;overflow-y:auto}
+#permov.gone{display:none}
+.perm-logo{font-family:'Syne',sans-serif;font-size:40px;font-weight:800;text-align:center;line-height:1}
+.perm-logo span{color:var(--c)}
+.perm-sub{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);letter-spacing:.15em;text-align:center}
+.perm-title{font-family:'Syne',sans-serif;font-size:14px;font-weight:700;color:var(--tx);text-align:center;margin-top:4px}
+.perm-list{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px}
+.perm-row{display:flex;align-items:center;gap:12px;background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.15);border-radius:12px;padding:12px 14px}
+.perm-row.ok{border-color:rgba(34,211,160,.4);background:rgba(34,211,160,.06)}
+.perm-row.no{border-color:rgba(255,77,109,.4);background:rgba(255,77,109,.06)}
+.perm-icon{font-size:20px;flex-shrink:0;width:28px;text-align:center}
+.perm-info{flex:1}
+.perm-name{font-family:'Syne',sans-serif;font-size:13px;font-weight:600}
+.perm-desc{font-family:'Space Mono',monospace;font-size:9px;color:var(--mu);margin-top:2px}
+.perm-status{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;flex-shrink:0}
+.perm-status.ok{color:var(--gr)}.perm-status.no{color:var(--red)}.perm-status.wait{color:var(--gold)}
+#permbtns{display:flex;flex-direction:column;gap:8px;width:100%;max-width:360px}
+#permask{width:100%;background:var(--c);color:var(--bg);border:none;border-radius:13px;padding:15px;font-family:'Syne',sans-serif;font-size:15px;font-weight:800;cursor:pointer;letter-spacing:.04em;transition:opacity .15s}
+#permask:disabled{opacity:.35;cursor:not-allowed}
+#permask:not(:disabled):active{opacity:.8}
+#permskip{width:100%;background:none;border:1px solid rgba(0,229,255,.25);border-radius:13px;padding:11px;font-family:'Space Mono',monospace;font-size:11px;color:var(--mu);cursor:pointer}
+/* denied screen */
+#deniedov{position:fixed;inset:0;z-index:160;background:var(--bg);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center}
+#deniedov.on{display:flex}
+#deniedov .d-logo{font-family:'Syne',sans-serif;font-size:36px;font-weight:800}
+#deniedov .d-logo span{color:var(--c)}
+#deniedov .d-icon{font-size:48px;margin:4px 0}
+#deniedov h2{font-family:'Syne',sans-serif;font-size:18px;font-weight:800;color:var(--red);line-height:1.3}
+#deniedov p{font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);line-height:1.9;max-width:300px}
+#deniedov .d-retry{width:100%;max-width:300px;background:rgba(255,77,109,.12);border:1px solid rgba(255,77,109,.4);border-radius:12px;padding:13px;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;color:var(--red);cursor:pointer;margin-top:6px}
+#deniedov .d-continue{width:100%;max-width:300px;background:rgba(0,229,255,.08);border:1px solid var(--cb);border-radius:12px;padding:11px;font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);cursor:pointer}
+/* back button in AR view */
+#backbtn{position:fixed;top:58px;right:12px;z-index:22;height:30px;background:rgba(2,13,26,.75);border:1px solid var(--cb);border-radius:15px;cursor:pointer;backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;font-family:'Space Mono',monospace;font-size:10px;color:var(--mu);padding:0 10px;gap:5px;transition:background .15s;white-space:nowrap}
+#backbtn.on{display:flex}
+#backbtn:active{background:rgba(0,229,255,.2)}
   </style>
 </head>
 <body>
+
+<!-- PERMISSION OVERLAY -->
+<div id="permov">
+  <div>
+    <div class="perm-logo">HORI<span>ZON</span></div>
+    <div class="perm-sub" style="margin-top:6px">CE QUI EST DEVANT VOUS</div>
+  </div>
+  <div class="perm-title">Cette application nécessite les accès suivants pour fonctionner.</div>
+  <div class="perm-list">
+    <div class="perm-row" id="pr-cam">
+      <span class="perm-icon">📷</span>
+      <div class="perm-info">
+        <div class="perm-name">Caméra</div>
+        <div class="perm-desc">Vue en réalité augmentée</div>
+      </div>
+      <span class="perm-status wait" id="ps-cam">EN ATTENTE</span>
+    </div>
+    <div class="perm-row" id="pr-gps">
+      <span class="perm-icon">📍</span>
+      <div class="perm-info">
+        <div class="perm-name">Localisation GPS</div>
+        <div class="perm-desc">Calcul des distances et directions</div>
+      </div>
+      <span class="perm-status wait" id="ps-gps">EN ATTENTE</span>
+    </div>
+    <div class="perm-row" id="pr-cmp">
+      <span class="perm-icon">🧭</span>
+      <div class="perm-info">
+        <div class="perm-name">Boussole</div>
+        <div class="perm-desc">Orientation en temps réel</div>
+      </div>
+      <span class="perm-status wait" id="ps-cmp">EN ATTENTE</span>
+    </div>
+  </div>
+  <div id="permbtns">
+    <button id="permask" onclick="requestAllPermissions()">Autoriser les accès</button>
+    <button id="permskip" onclick="showDenied('skip')">Continuer sans autoriser</button>
+  </div>
+</div>
+
+<!-- DENIED SCREEN -->
+<div id="deniedov">
+  <div class="d-logo">HORI<span>ZON</span></div>
+  <div class="d-icon">🔒</div>
+  <h2>Accès requis</h2>
+  <p id="deniedmsg">Cette application ne peut pas fonctionner sans l'accès à la caméra, à la localisation GPS et à la boussole. Ces données ne sont jamais partagées et restent sur votre appareil.</p>
+  <button class="d-retry" onclick="retryPermissions()">↺ Réessayer</button>
+  <button class="d-continue" onclick="hideDenied()">Continuer en mode limité</button>
+</div>
 
 <!-- STARTUP -->
 <div id="startup">
@@ -234,6 +320,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Syne',sans-serif;overflow
 <div id="cbar"><div id="ctrack"><div id="cctr"></div></div></div>
 <div id="hdg">---° N</div>
 <button id="mbtn" onclick="goMenu()">☰</button>
+<button id="backbtn" onclick="goMenu()">← Menu</button>
 <div id="cwarn" onclick="toggleCal()">⚠ Boussole non calibrée · tap ✕</div>
 <div id="calw">
   <span>Offset:</span>
@@ -377,54 +464,192 @@ let cRelTimer=null;
 const poiEls=new Map();
 
 // ═══════════════════════════════════════════
-// INIT
+// PERMISSIONS FLOW
+// ═══════════════════════════════════════════
+const permState = {cam:'wait', gps:'wait', cmp:'wait'};
+
+function setPermRow(id, state){
+  permState[id] = state;
+  const row = document.getElementById('pr-'+id);
+  const st  = document.getElementById('ps-'+id);
+  if(!row||!st) return;
+  row.classList.remove('ok','no');
+  if(state==='ok'){row.classList.add('ok');st.className='perm-status ok';st.textContent='AUTORISÉ';}
+  else if(state==='no'){row.classList.add('no');st.className='perm-status no';st.textContent='REFUSÉ';}
+  else{st.className='perm-status wait';st.textContent='EN ATTENTE';}
+}
+
+async function requestAllPermissions(){
+  const btn = document.getElementById('permask');
+  btn.disabled = true; btn.textContent = 'Autorisation en cours…';
+
+  // ── IMPORTANT iOS ──────────────────────────────────────────────────
+  // DeviceOrientationEvent.requestPermission() DOIT être appelé en 1er,
+  // synchroniquement dans le handler du geste utilisateur.
+  // Tout await avant cet appel invalide le contexte du geste sur iOS.
+  // ──────────────────────────────────────────────────────────────────
+  let compassPromise = null;
+  if(typeof DeviceOrientationEvent !== 'undefined' &&
+     typeof DeviceOrientationEvent.requestPermission === 'function'){
+    try{
+      // Appel SYNCHRONE dans le gestionnaire de clic
+      compassPromise = DeviceOrientationEvent.requestPermission();
+    }catch(e){ compassPromise = Promise.resolve('denied'); }
+  }
+
+  // ── Caméra ──────────────────────────────────────────────────────────
+  let camOk = false;
+  if(navigator.mediaDevices?.getUserMedia){
+    try{
+      const stream = await navigator.mediaDevices.getUserMedia(
+        {video:{facingMode:{ideal:'environment'},width:{ideal:1920},height:{ideal:1080}},audio:false}
+      );
+      document.getElementById('cam').srcObject = stream;
+      camOk = true; setPermRow('cam','ok');
+    }catch(e){ setPermRow('cam','no'); }
+  } else { setPermRow('cam','no'); }
+
+  // ── GPS ─────────────────────────────────────────────────────────────
+  let gpsOk = false;
+  if(navigator.geolocation){
+    gpsOk = await new Promise(resolve=>{
+      navigator.geolocation.getCurrentPosition(
+        pos=>{ onGPS(pos); setPermRow('gps','ok'); resolve(true); },
+        err=>{ setPermRow('gps','no'); resolve(false); },
+        {enableHighAccuracy:true, timeout:15000, maximumAge:0}
+      );
+    });
+  } else { setPermRow('gps','no'); }
+
+  // ── Boussole ────────────────────────────────────────────────────────
+  let cmpOk = false;
+  if(compassPromise){
+    try{
+      const res = await compassPromise;
+      if(res === 'granted'){
+        window.addEventListener('deviceorientation', onOri, true);
+        cmpOk = true; setPermRow('cmp','ok');
+      } else { setPermRow('cmp','no'); }
+    }catch(e){ setPermRow('cmp','no'); }
+  } else {
+    // Android / desktop : pas de permission requise
+    window.addEventListener('deviceorientationabsolute', onOriAbs, true);
+    window.addEventListener('deviceorientation', onOri, true);
+    cmpOk = true; setPermRow('cmp','ok');
+  }
+
+  btn.disabled = false; btn.textContent = 'Autoriser les accès';
+
+  // ── Décision ────────────────────────────────────────────────────────
+  const allOk = camOk && gpsOk && cmpOk;
+  const criticalOk = gpsOk && cmpOk; // Minimum pour fonctionner
+
+  if(allOk){
+    launchApp();
+  } else if(criticalOk){
+    // Caméra manquante seulement → on peut lancer sans
+    launchApp();
+  } else {
+    const missing = [];
+    if(!camOk) missing.push('caméra');
+    if(!gpsOk) missing.push('localisation GPS');
+    if(!cmpOk) missing.push('boussole');
+    const msg = `L'accès à ${missing.join(' et ')} ${missing.length>1?'ont été refusés':'a été refusé'}. `+
+      `Sans ces autorisations, HORIZON ne peut pas afficher les points d'intérêt en réalité augmentée.
+
+`+
+      `Pour réactiver ces accès, rendez-vous dans les Réglages de votre appareil → `+
+      `Confidentialité → puis accordez les autorisations à votre navigateur.`;
+    showDenied(msg);
+  }
+}
+
+function showDenied(msg){
+  if(msg && msg !== 'skip'){
+    document.getElementById('deniedmsg').textContent = msg;
+  }
+  if(msg === 'skip'){
+    // Continuer sans autoriser → lancer en mode limité
+    launchApp();
+    return;
+  }
+  document.getElementById('deniedov').classList.add('on');
+}
+function hideDenied(){
+  document.getElementById('deniedov').classList.remove('on');
+  launchApp();
+}
+function retryPermissions(){
+  document.getElementById('deniedov').classList.remove('on');
+}
+
+function launchApp(){
+  // Cache permission overlay
+  document.getElementById('permov').classList.add('gone');
+  // Affiche le startup classique ou démarre directement
+  const st = document.getElementById('startup');
+  if(permState.cam==='ok' && permState.gps==='ok' && permState.cmp==='ok'){
+    // Tout OK → skip startup → lancer directement
+    st.style.display = 'none';
+    initApp();
+  } else {
+    // Accès partiels → startup classique pour info
+    st.style.display = 'flex';
+    // Pré-remplir les statuts dans le startup
+    setPerm('cam', permState.cam);
+    setPerm('gps', permState.gps==='ok'?'ok':'no');
+    setPerm('cmp', permState.cmp==='ok'?'ok':'no');
+  }
+}
+
+// ═══════════════════════════════════════════
+// INIT (appelé après permissions accordées)
 // ═══════════════════════════════════════════
 function initApp(){
-  const btn=document.getElementById('stbtn');
-  btn.disabled=true; btn.textContent='Démarrage…';
+  const btn = document.getElementById('stbtn');
+  if(btn){ btn.disabled=true; btn.textContent='Démarrage…'; }
 
-  // Dismiss startup immediately
-  const st=document.getElementById('startup');
-  st.style.transition='opacity .4s';
-  st.style.opacity='0';
-  setTimeout(()=>st.style.display='none', 400);
+  // Cache le startup
+  const st = document.getElementById('startup');
+  if(st){ st.style.transition='opacity .4s'; st.style.opacity='0'; setTimeout(()=>st.style.display='none',400); }
+
+  // Affiche le bouton retour
+  document.getElementById('backbtn').classList.add('on');
 
   buildFilters();
   renderLoop();
 
-  // Camera (async, non-blocking)
-  if(navigator.mediaDevices?.getUserMedia){
-    navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})
-      .then(s=>{document.getElementById('cam').srcObject=s; setPerm('cam','ok');})
-      .catch(()=>setPerm('cam','no'));
-  } else setPerm('cam','no');
+  // Caméra — déjà démarrée si permission accordée, sinon tenter
+  if(!document.getElementById('cam').srcObject){
+    if(navigator.mediaDevices?.getUserMedia){
+      navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'}},audio:false})
+        .then(s=>{document.getElementById('cam').srcObject=s; setPerm('cam','ok');})
+        .catch(()=>setPerm('cam','no'));
+    } else setPerm('cam','no');
+  } else { setPerm('cam','ok'); }
 
-  // GPS (async, non-blocking)
-  if(!navigator.geolocation){ setPerm('gps','no'); showGPSHelp('ns'); }
-  else { setPerm('gps','wait'); startGPS(); }
+  // GPS — watchPosition (getCurrentPosition déjà fait dans requestAllPermissions)
+  if(navigator.geolocation){
+    navigator.geolocation.watchPosition(onGPS, onGPSErr,
+      {enableHighAccuracy:true, maximumAge:3000, timeout:20000});
+  }
+  if(!S.gpsOk){ setPerm('gps','wait'); startGPS(); }
 
-  // Compass
-  if(typeof DeviceOrientationEvent!=='undefined' &&
-     typeof DeviceOrientationEvent.requestPermission==='function'){
-    // iOS Safari : requestPermission requis (doit être depuis un geste utilisateur)
-    DeviceOrientationEvent.requestPermission()
-      .then(p=>{
-        if(p==='granted'){
-          // iOS : webkitCompassHeading est dans deviceorientation (pas besoin d'absolute)
-          window.addEventListener('deviceorientation',onOri,true);
-          setPerm('cmp','ok');
-        } else {
-          setPerm('cmp','no');
-          showDbg('🧭 Boussole refusée – active-la dans Réglages → Safari');
-        }
-      }).catch(()=>setPerm('cmp','no'));
-  } else {
-    // Android / desktop : écouter les deux sources
-    // deviceorientationabsolute = nord magnétique (meilleur quand disponible)
-    // deviceorientation         = fallback si absolute est figé ou absent
-    window.addEventListener('deviceorientationabsolute',onOriAbs,true);
-    window.addEventListener('deviceorientation',onOri,true);
-    setPerm('cmp','ok');
+  // Boussole Android — déjà activée si requestAllPermissions a été appelé
+  // Si on arrive ici via le bouton Démarrer direct (sans permission flow)
+  if(permState.cmp === 'wait'){
+    if(typeof DeviceOrientationEvent!=='undefined' &&
+       typeof DeviceOrientationEvent.requestPermission==='function'){
+      DeviceOrientationEvent.requestPermission()
+        .then(p=>{
+          if(p==='granted'){ window.addEventListener('deviceorientation',onOri,true); setPerm('cmp','ok'); }
+          else setPerm('cmp','no');
+        }).catch(()=>setPerm('cmp','no'));
+    } else {
+      window.addEventListener('deviceorientationabsolute',onOriAbs,true);
+      window.addEventListener('deviceorientation',onOri,true);
+      setPerm('cmp','ok');
+    }
   }
 }
 
@@ -1020,9 +1245,10 @@ function updPOIs(h){
   for(const{p,df}of vis){
     let e=poiEls.get(p.name);
     if(!e){e=buildPOI(p);document.getElementById('poic').appendChild(e);poiEls.set(p.name,e);}
-    // Position via `left` — avoids translateX calc() bugs on mobile browsers
-    const xPx = W/2 + (df/FOV2)*(W/2);
-    e.style.left = xPx + 'px';
+    // Use transform only — most reliable cross-browser for AR positioning
+    // left:50% sets anchor at screen center, translateX handles offset
+    const pct = 50 + (df/FOV2)*50;
+    e.style.left = pct + '%';
     const a=Math.abs(df);
     e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
     const ch=Math.max(18,Math.round(55*(1-Math.min(p.dist/S.maxD,1))));
@@ -1193,6 +1419,8 @@ function goMenu(){
   s.style.display='flex'; s.style.opacity='0'; s.style.transition='opacity .3s';
   const b=document.getElementById('stbtn');b.disabled=false;b.textContent='↩ Reprendre';
   requestAnimationFrame(()=>s.style.opacity='1');
+  // Hide back button while in menu
+  document.getElementById('backbtn').classList.remove('on');
 }
 function showQuit(){document.getElementById('qov').classList.add('on');}
 function hideQuit(){document.getElementById('qov').classList.remove('on');}
