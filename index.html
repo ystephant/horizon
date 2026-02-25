@@ -361,14 +361,22 @@ function initApp(){
   // Compass
   if(typeof DeviceOrientationEvent!=='undefined' &&
      typeof DeviceOrientationEvent.requestPermission==='function'){
+    // iOS Safari : requestPermission requis (doit être depuis un geste utilisateur)
     DeviceOrientationEvent.requestPermission()
       .then(p=>{
         if(p==='granted'){
+          // iOS : webkitCompassHeading est dans deviceorientation (pas besoin d'absolute)
           window.addEventListener('deviceorientation',onOri,true);
           setPerm('cmp','ok');
-        } else setPerm('cmp','no');
+        } else {
+          setPerm('cmp','no');
+          showDbg('🧭 Boussole refusée – active-la dans Réglages → Safari');
+        }
       }).catch(()=>setPerm('cmp','no'));
   } else {
+    // Android / desktop : écouter les deux sources
+    // deviceorientationabsolute = nord magnétique (meilleur quand disponible)
+    // deviceorientation         = fallback si absolute est figé ou absent
     window.addEventListener('deviceorientationabsolute',onOriAbs,true);
     window.addEventListener('deviceorientation',onOri,true);
     setPerm('cmp','ok');
@@ -437,34 +445,73 @@ function showGPSHelp(c){
 // ═══════════════════════════════════════════
 // COMPASS
 // ═══════════════════════════════════════════
-function onOriAbs(e){
-  if(e.alpha==null)return;
-  // alpha=0 when pointing North for absolute events
-  updRaw((360-e.alpha+360)%360);
-  S.cSrc='abs'; hideCWarn();
+// ── COMPASS : gestion multi-source robuste ───────────────────────────────
+// Problème fréquent : deviceorientationabsolute donne alpha=0 figé et
+// verrouille S.cSrc='abs', bloquant deviceorientation qui, lui, bouge.
+// Solution : on surveille si la source abs change vraiment. Si elle reste
+// identique pendant >1s on la considère "figée" et on passe au fallback.
+
+let _absHistory=[]; // dernières valeurs absolues pour détection stagnation
+let _absFrozen=false;
+
+function _absIsLive(val){
+  _absHistory.push({v:val,t:Date.now()});
+  if(_absHistory.length>60) _absHistory.shift();
+  // Garder uniquement les 2 dernières secondes
+  const cutoff=Date.now()-2000;
+  const recent=_absHistory.filter(x=>x.t>cutoff);
+  if(recent.length<10) return true; // pas encore assez de données → optimiste
+  const mn=Math.min(...recent.map(x=>x.v));
+  const mx=Math.max(...recent.map(x=>x.v));
+  // Si toutes les valeurs sont dans un écart de 0.5° → capteur figé
+  _absFrozen = (mx-mn)<0.5;
+  return !_absFrozen;
 }
+
+function onOriAbs(e){
+  if(e.alpha==null) return;
+  const h=(360-e.alpha+360)%360;
+  if(!_absIsLive(h)) return; // valeur figée → ignorer, laisser onOri prendre le relais
+  updRaw(h);
+  S.cSrc='abs';
+  hideCWarn();
+}
+
 function onOri(e){
-  // iOS: webkitCompassHeading = clockwise from magnetic North (most reliable)
+  // ── iOS : webkitCompassHeading (source la plus fiable sur iPhone/iPad) ──
   if(e.webkitCompassHeading!=null && e.webkitCompassHeading>=0){
-    updRaw(e.webkitCompassHeading); S.cSrc='ios'; hideCWarn(); return;
+    _absFrozen=false;
+    updRaw(e.webkitCompassHeading);
+    S.cSrc='ios';
+    hideCWarn();
+    return;
   }
-  // Android Chrome: regular event can have e.absolute=true = north-referenced
+  // ── Android : event avec absolute=true (equivalent à deviceorientationabsolute) ──
   if(e.absolute===true && e.alpha!=null){
-    updRaw((360-e.alpha+360)%360); S.cSrc='abs'; hideCWarn(); return;
+    const h=(360-e.alpha+360)%360;
+    if(_absIsLive(h)){
+      updRaw(h);
+      S.cSrc='abs';
+      hideCWarn();
+      return;
+    }
   }
-  // Already have a good source
-  if(S.cSrc==='abs'||S.cSrc==='ios') return;
-  // Fallback: non-absolute alpha (relative to arbitrary origin — warn user)
+  // ── Bloc si une source absolue VIVANTE est déjà active ──
+  // IMPORTANT : on ne bloque PAS si _absFrozen=true → on laisse passer le fallback
+  if((S.cSrc==='abs'||S.cSrc==='ios') && !_absFrozen) return;
+
+  // ── Fallback : alpha relatif (origin arbitraire — boussole non calibrée) ──
   if(e.alpha!=null){
     updRaw((360-e.alpha+360)%360);
     if(S.cSrc!=='rel'){
       S.cSrc='rel';
       if(!cRelTimer) cRelTimer=setTimeout(()=>{
         if(S.cSrc==='rel') document.getElementById('cwarn').style.display='block';
-      },3000);
+      },2000);
     }
   }
 }
+
 function updRaw(r){
   S.hRaw=r;
   if(S.hSm==null){S.hSm=r;return;}
@@ -869,7 +916,8 @@ function renderLoop(){
       e.style.opacity=Math.max(0,1-Math.abs(df)/FOV2*.8);
     });
     const hi=Math.round(h);
-    document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)}`;
+    const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
+    document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}`;
     if(S.gpsOk && S.pois.length) throttledUpdPOIs(h);
   } else if(S.gpsOk && S.pois.length) {
     // Pas de boussole : on affiche quand même les POIs triés par distance
