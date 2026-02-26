@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="theme-color" content="#e8f2f7"/>
-  <title>Horizon</title>
+  <title>Mon Horizon</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -261,8 +261,8 @@ body{background:var(--bg);color:var(--tx);font-family:'Nunito',sans-serif;overfl
 <!-- PERMISSION OVERLAY -->
 <div id="permov">
   <div>
-    <div class="perm-logo">HORI<span>ZON</span></div>
-    <div class="perm-sub" style="margin-top:6px">CE QUI EST DEVANT VOUS</div>
+    <img src="https://raw.githubusercontent.com/ystephant/horizon/main/public/mon-horizon.png" alt="Mon Horizon" class="logo-img"/>
+    <div class="perm-sub" style="margin-top:2px;font-size:9px;letter-spacing:.2em">CE QUI EST DEVANT VOUS</div>
   </div>
   <div class="perm-title">Cette application nécessite les accès suivants pour fonctionner.</div>
   <div class="perm-list">
@@ -299,7 +299,7 @@ body{background:var(--bg);color:var(--tx);font-family:'Nunito',sans-serif;overfl
 
 <!-- DENIED SCREEN -->
 <div id="deniedov">
-  <div class="d-logo">HORI<span>ZON</span></div>
+  <img src="https://raw.githubusercontent.com/ystephant/horizon/main/public/mon-horizon.png" alt="Mon Horizon" class="d-logo-img"/>
   <div class="d-icon">🔒</div>
   <h2>Accès requis</h2>
   <p id="deniedmsg">Cette application ne peut pas fonctionner sans l'accès à la caméra, à la localisation GPS et à la boussole. Ces données ne sont jamais partagées et restent sur votre appareil.</p>
@@ -310,8 +310,8 @@ body{background:var(--bg);color:var(--tx);font-family:'Nunito',sans-serif;overfl
 <!-- STARTUP -->
 <div id="startup">
   <div style="text-align:center">
-    <div class="slogo">HORI<span>ZON</span></div>
-    <div class="ssub" style="margin-top:5px">CE QUI EST DEVANT VOUS</div>
+    <img src="https://raw.githubusercontent.com/ystephant/horizon/main/public/mon-horizon.png" alt="Mon Horizon" class="logo-img"/>
+    <div class="ssub" style="margin-top:2px;font-size:9px;letter-spacing:.2em">CE QUI EST DEVANT VOUS</div>
   </div>
   <div class="sprm">
     <div class="pi" id="pcam"><span class="piic">📷</span><span>Caméra</span><span class="pis">EN ATTENTE</span></div>
@@ -1248,11 +1248,9 @@ function updPOIs(h){
     let e=poiEls.get(p.name);
     if(!e){e=buildPOI(p);document.getElementById('poic').appendChild(e);poiEls.set(p.name,e);}
     // position:fixed → coordonnées VIEWPORT directes, recalculées chaque frame
-    const xPx = W/2 + (df/FOV2)*(W/2);
-    const topPx = (parseFloat(e.dataset.topPct)/100) * window.innerHeight;
-    // Écriture groupée via cssText pour forcer un repaint atomique
-    e.style.cssText = e.style.cssText.replace(/left:[^;]+;?/,'').replace(/top:[^;]+;?/,'');
-    e.style.left = xPx + 'px';
+    const xPx  = W / 2 + (df / FOV2) * (W / 2);
+    const topPx = (parseFloat(e.dataset.topPct) / 100) * window.innerHeight;
+    e.style.left = xPx  + 'px';
     e.style.top  = topPx + 'px';
     const a=Math.abs(df);
     e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
@@ -1275,9 +1273,11 @@ function updPOIs(h){
 function buildPOI(p){
   const e=document.createElement('div');
   e.className='poi';
-  // top/left set every frame in updPOIs — same technique as compass labels (px values)
   const hash=p.name.split('').reduce((a,c)=>a+c.charCodeAt(0),0);
-  e.dataset.topPct = TOPS[hash%TOPS.length];
+  e.dataset.topPct = TOPS[hash % TOPS.length];
+  // Initialiser left/top pour éviter un flash au premier frame
+  e.style.left = '-9999px';
+  e.style.top  = '50%';
   e.innerHTML=`<div class="poc" style="height:40px"></div>
 <div class="pob">
   <span class="pii">${p.type.emoji}</span>
