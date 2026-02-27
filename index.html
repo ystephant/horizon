@@ -41,11 +41,34 @@
 body{background:var(--bg);color:var(--tx);font-family:'Nunito',sans-serif;overflow:hidden;height:100dvh;width:100dvw;user-select:none}
 
 /* ── CAMERA ──────────────────────────────────────────────── */
-#cam{position:fixed;inset:0;width:100%;height:100%;object-fit:cover;z-index:0}
+#cam{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:50%;height:50%;object-fit:cover;z-index:0;border-radius:8px}
+/* ── GPS POPUP ───────────────────────────────────────────── */
+#gpspopup{
+  position:fixed;bottom:70px;left:12px;right:12px;z-index:40;
+  background:var(--card);border:1.5px solid var(--bord);border-radius:16px;
+  padding:14px 15px;display:none;align-items:center;gap:12px;
+  box-shadow:var(--shadow-md);backdrop-filter:blur(12px);
+  animation:slideUp .3s ease;
+}
+#gpspopup.on{display:flex}
+@keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+.gpp-icon{font-size:22px;flex-shrink:0}
+.gpp-txt{flex:1}
+.gpp-title{font-weight:800;font-size:13px;color:var(--tx);margin-bottom:2px}
+.gpp-desc{font-size:11px;color:var(--txlight);line-height:1.4}
+.gpp-btn{
+  flex-shrink:0;background:var(--seadeep);color:#fff;border:none;
+  border-radius:10px;padding:8px 13px;font-family:'Nunito',sans-serif;
+  font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;
+}
+.gpp-close{
+  position:absolute;top:8px;right:10px;background:none;border:none;
+  color:var(--mu);font-size:14px;cursor:pointer;padding:2px 4px;
+  font-family:'Nunito',sans-serif;
+}
+
 /* vignette douce style peinture — bords légèrement estompés */
 .vig{position:fixed;inset:0;z-index:5;background:radial-gradient(ellipse at center,transparent 45%,rgba(238,245,249,.35) 100%);pointer-events:none}
-
-/* ── AR OVERLAY ──────────────────────────────────────────── */
 #ar{position:fixed;inset:0;z-index:10;pointer-events:none}
 .hl{position:absolute;left:0;right:0;top:50%;height:1px;background:linear-gradient(to right,transparent,rgba(91,158,201,.5),transparent)}
 .ch{position:absolute;top:50%;left:calc(50% - 18px);width:36px;height:1px;background:rgba(91,158,201,.55);transform:translateY(-50%)}
@@ -378,9 +401,10 @@ body{background:var(--bg);color:var(--tx);font-family:'Nunito',sans-serif;overfl
 <div id="gpspopup">
   <span class="gpp-icon">📍</span>
   <div class="gpp-txt">
-    <div class="gpp-title">Localisation GPS non autorisée</div>
-    <div class="gpp-desc">Appuyez sur le bouton <strong>📍</strong> en bas à droite pour définir votre position manuellement.</div>
+    <div class="gpp-title">Position GPS non disponible</div>
+    <div class="gpp-desc">Définissez votre position manuellement pour voir les POIs.</div>
   </div>
+  <button class="gpp-btn" onclick="document.getElementById('gpspopup').classList.remove('on');openMap()">Définir 📍</button>
   <button class="gpp-close" onclick="document.getElementById('gpspopup').classList.remove('on')">✕</button>
 </div>
 
@@ -716,69 +740,53 @@ function showGPSHelp(c){
 // ═══════════════════════════════════════════
 // COMPASS
 // ═══════════════════════════════════════════
-// ── COMPASS : gestion multi-source robuste ───────────────────────────────
-// Problème fréquent : deviceorientationabsolute donne alpha=0 figé et
-// verrouille S.cSrc='abs', bloquant deviceorientation qui, lui, bouge.
-// Solution : on surveille si la source abs change vraiment. Si elle reste
-// identique pendant >1s on la considère "figée" et on passe au fallback.
+// ═══════════════════════════════════════════
+// COMPASS — priorité : iOS webkit → absolute → relatif
+// ═══════════════════════════════════════════
 
-let _absHistory=[]; // dernières valeurs absolues pour détection stagnation
-let _absFrozen=false;
-
-function _absIsLive(val){
-  _absHistory.push({v:val,t:Date.now()});
-  if(_absHistory.length>60) _absHistory.shift();
-  // Garder uniquement les 2 dernières secondes
-  const cutoff=Date.now()-2000;
-  const recent=_absHistory.filter(x=>x.t>cutoff);
-  if(recent.length<10) return true; // pas encore assez de données → optimiste
-  const mn=Math.min(...recent.map(x=>x.v));
-  const mx=Math.max(...recent.map(x=>x.v));
-  // Si toutes les valeurs sont dans un écart de 0.5° → capteur figé
-  _absFrozen = (mx-mn)<0.5;
-  return !_absFrozen;
-}
+// Ordre de priorité des sources (plus élevé = meilleur)
+const SRC_PRIORITY = {ios:3, abs:2, rel:1, null:0};
 
 function onOriAbs(e){
+  // deviceorientationabsolute : nord magnétique garanti
   if(e.alpha==null) return;
-  const h=(360-e.alpha+360)%360;
-  if(!_absIsLive(h)) return; // valeur figée → ignorer, laisser onOri prendre le relais
-  updRaw(h);
-  S.cSrc='abs';
-  hideCWarn();
+  const h = (360 - e.alpha + 360) % 360;
+  // N'accepter que si meilleure ou égale à la source actuelle
+  if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
+    updRaw(h);
+    S.cSrc = 'abs';
+    hideCWarn();
+  }
 }
 
 function onOri(e){
-  // ── iOS : webkitCompassHeading (source la plus fiable sur iPhone/iPad) ──
-  if(e.webkitCompassHeading!=null && e.webkitCompassHeading>=0){
-    _absFrozen=false;
+  // ── iOS : webkitCompassHeading — toujours prioritaire ──────────────────
+  if(e.webkitCompassHeading != null && e.webkitCompassHeading >= 0){
     updRaw(e.webkitCompassHeading);
-    S.cSrc='ios';
+    S.cSrc = 'ios';
     hideCWarn();
     return;
   }
-  // ── Android : event avec absolute=true (equivalent à deviceorientationabsolute) ──
-  if(e.absolute===true && e.alpha!=null){
-    const h=(360-e.alpha+360)%360;
-    if(_absIsLive(h)){
+  // ── Android : event.absolute=true équivaut à deviceorientationabsolute ──
+  if(e.absolute === true && e.alpha != null){
+    const h = (360 - e.alpha + 360) % 360;
+    if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
       updRaw(h);
-      S.cSrc='abs';
+      S.cSrc = 'abs';
       hideCWarn();
-      return;
     }
+    return;
   }
-  // ── Bloc si une source absolue VIVANTE est déjà active ──
-  // IMPORTANT : on ne bloque PAS si _absFrozen=true → on laisse passer le fallback
-  if((S.cSrc==='abs'||S.cSrc==='ios') && !_absFrozen) return;
-
-  // ── Fallback : alpha relatif (origin arbitraire — boussole non calibrée) ──
-  if(e.alpha!=null){
-    updRaw((360-e.alpha+360)%360);
-    if(S.cSrc!=='rel'){
-      S.cSrc='rel';
-      if(!cRelTimer) cRelTimer=setTimeout(()=>{
-        if(S.cSrc==='rel') document.getElementById('cwarn').style.display='block';
-      },2000);
+  // ── Fallback relatif : uniquement si aucune source absolue disponible ──
+  // (ne pas écraser une source abs/ios avec un alpha non-référencé nord)
+  if(S.cSrc === 'abs' || S.cSrc === 'ios') return;
+  if(e.alpha != null){
+    updRaw((360 - e.alpha + 360) % 360);
+    if(S.cSrc !== 'rel'){
+      S.cSrc = 'rel';
+      if(!cRelTimer) cRelTimer = setTimeout(()=>{
+        if(S.cSrc === 'rel') document.getElementById('cwarn').style.display = 'block';
+      }, 2000);
     }
   }
 }
