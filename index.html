@@ -1257,7 +1257,7 @@ function renderLoop(){
 }
 
 function updPOIs(h){
-  const W=window.innerWidth;
+  const W=document.getElementById('ctrack').offsetWidth;
   const vis=[];
   let bestDf=Infinity, bestPOI=null;  // FIX: was undefined → ReferenceError
   // If no compass, show all POIs centered (sorted by distance)
@@ -1276,7 +1276,10 @@ function updPOIs(h){
     let e=poiEls.get(p.name);
     if(!e){e=buildPOI(p);document.getElementById('poic').appendChild(e);poiEls.set(p.name,e);}
     // position:fixed → coordonnées VIEWPORT directes, recalculées chaque frame
-    const xPx  = W / 2 + (df / FOV2) * (W / 2);
+   let xPx  = W / 2 + (df / FOV2) * (W / 2);
+
+    if(xPx < 0) xPx = 0;
+    if(xPx > W) xPx = W;
     const topPx = (parseFloat(e.dataset.topPct) / 100) * window.innerHeight;
     e.style.left = xPx  + 'px';
     e.style.top  = topPx + 'px';
