@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
   <meta name="theme-color" content="#e8f2f7"/>
   <title>Mon Horizon</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
@@ -53,14 +53,16 @@ border-radius:0
 }
 /* ── GPS POPUP ───────────────────────────────────────────── */
 #gpspopup{
-  position:fixed;bottom:70px;left:12px;right:12px;z-index:40;
+  position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:40;
+  width:calc(100% - 24px);max-width:380px;
   background:var(--card);border:1.5px solid var(--bord);border-radius:16px;
   padding:14px 15px;display:none;align-items:center;gap:12px;
   box-shadow:var(--shadow-md);backdrop-filter:blur(12px);
-  animation:slideUp .3s ease;
+  animation:fadeIn .3s ease;
 }
 #gpspopup.on{display:flex}
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fadeIn{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}
 .gpp-icon{font-size:22px;flex-shrink:0}
 .gpp-txt{flex:1}
 .gpp-title{font-weight:800;font-size:13px;color:var(--tx);margin-bottom:2px}
@@ -144,6 +146,7 @@ border-radius:0
 
 /* ── DEBUG TOAST ─────────────────────────────────────────── */
 #dbg{position:fixed;top:90px;left:50%;transform:translateX(-50%);z-index:50;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;color:var(--hull);background:rgba(245,233,208,.95);border:1px solid rgba(200,148,58,.45);border-radius:20px;padding:5px 16px;pointer-events:none;display:none;white-space:nowrap;max-width:90vw;overflow:hidden;text-overflow:ellipsis;box-shadow:var(--shadow)}
+#dbgpanel{position:fixed;bottom:110px;left:10px;right:10px;z-index:50;background:rgba(0,0,0,.75);color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;border-radius:12px;display:none;line-height:1.7;pointer-events:none}
 
 /* ── DETAIL PANEL ────────────────────────────────────────── */
 #det{position:fixed;bottom:106px;left:12px;right:12px;z-index:30;background:rgba(250,246,238,.97);border:1.5px solid var(--bord);border-radius:18px;padding:16px 17px;backdrop-filter:blur(20px);display:none;pointer-events:auto;max-height:68vh;overflow-y:auto;box-shadow:var(--shadow-md)}
@@ -217,7 +220,7 @@ border-radius:0
 #cwarn{position:fixed;top:106px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(200,148,58,.12);border:1px solid rgba(200,148,58,.5);border-radius:20px;padding:5px 14px;font-family:'Nunito',sans-serif;font-size:10px;font-weight:700;color:var(--hull);pointer-events:auto;cursor:pointer;display:none;box-shadow:var(--shadow)}
 
 /* ── STARTUP SCREEN ──────────────────────────────────────── */
-#startup{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#daeef8 0%,#eef5f9 40%,#f5e9d0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:32px;overflow-y:auto}
+#startup{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#daeef8 0%,#eef5f9 40%,#f5e9d0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:32px;overflow-y:auto}
 .slogo{
 font-family:'Lora',serif;
 font-size:25px;
@@ -296,7 +299,7 @@ letter-spacing:-.01em
 #deniedov .d-continue{width:100%;max-width:310px;background:rgba(91,158,201,.1);border:1px solid var(--bord);border-radius:13px;padding:12px;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;color:var(--txlight);cursor:pointer}
 
 /* ── LOGO IMAGE ──────────────────────────────────────────── */
-.d-logo-img{display:block;margin:0 auto 6px;width:60px;height:auto;object-fit:contain}
+.d-logo-img{display:block;margin:0 auto 6px;width:min(80vw,400px);height:auto;object-fit:contain}
 </style>
 </head>
 <body>
@@ -416,6 +419,7 @@ letter-spacing:-.01em
 
 <!-- DEBUG TOAST -->
 <div id="dbg"></div>
+<div id="dbgpanel"></div>
 
 <!-- GPS MISSING POPUP -->
 <div id="gpspopup">
@@ -528,6 +532,7 @@ const S = {
   gpsOk:false, gpsMan:false,
   allPOIs:[], pois:[],
   fetchLat:null, fetchLng:null,
+  dbgOpen:false, dbgRaw:null,
   maxD:10000, band:false,  // band=false: montre de 0 à maxD
   bandPct:0.20,            // ±20% by default (e.g. 50km → 40-60km)
   cat:'all',
@@ -767,14 +772,44 @@ function showGPSHelp(c){
 // Ordre de priorité des sources (plus élevé = meilleur)
 const SRC_PRIORITY = {ios:3, abs:2, rel:1, null:0};
 
+// ── Récupère la correction due à l'orientation de l'écran ───────────────
+function getScreenAngle(){
+  if(screen.orientation && typeof screen.orientation.angle==='number') return screen.orientation.angle;
+  if(typeof window.orientation==='number') return window.orientation;
+  return 0;
+}
+
+// ── Calcul du cap avec compensation inclinaison (tilt) ───────────────────
+// Formule W3C qui fonctionne quelle que soit l'inclinaison du téléphone.
+// Pour beta≈90° (téléphone vertical AR) et gamma≈0° elle donne le même
+// résultat que (360-alpha) mais elle est correcte pour tous les angles.
+function computeHeading(alpha, beta, gamma){
+  const toR = Math.PI/180;
+  const a = alpha*toR, b = beta*toR, g = gamma*toR;
+  // Vecteur projeté du nord dans le plan de l'écran
+  const Vx = -Math.cos(a)*Math.sin(g) - Math.sin(a)*Math.sin(b)*Math.cos(g);
+  const Vy = -Math.sin(a)*Math.sin(g) + Math.cos(a)*Math.sin(b)*Math.cos(g);
+  let h = Math.atan2(Vx, Vy)*180/Math.PI;
+  return (h + 360) % 360;
+}
+
+// ── Convertit alpha seul avec correction orientation écran ───────────────
+function alphaToHeading(alpha){
+  const screenAngle = getScreenAngle();
+  return (360 - alpha + screenAngle + 360) % 360;
+}
+
 function onOriAbs(e){
   // deviceorientationabsolute : nord magnétique garanti
   if(e.alpha==null) return;
-  const h = (360 - e.alpha + 360) % 360;
-  // N'accepter que si meilleure ou égale à la source actuelle
+  // Utilise la compensation tilt si beta/gamma disponibles, sinon alpha seul
+  const h = (e.beta!=null && e.gamma!=null)
+    ? (computeHeading(e.alpha, e.beta, e.gamma) + getScreenAngle() + 360) % 360
+    : alphaToHeading(e.alpha);
   if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
     updRaw(h);
     S.cSrc = 'abs';
+    S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h};
     hideCWarn();
   }
 }
@@ -784,24 +819,27 @@ function onOri(e){
   if(e.webkitCompassHeading != null && e.webkitCompassHeading >= 0){
     updRaw(e.webkitCompassHeading);
     S.cSrc = 'ios';
+    S.dbgRaw = {alpha:e.webkitCompassHeading, beta:e.beta, gamma:e.gamma, h:e.webkitCompassHeading};
     hideCWarn();
     return;
   }
   // ── Android : event.absolute=true équivaut à deviceorientationabsolute ──
   if(e.absolute === true && e.alpha != null){
-    const h = (360 - e.alpha + 360) % 360;
+    const h = (e.beta!=null && e.gamma!=null)
+      ? (computeHeading(e.alpha, e.beta, e.gamma) + getScreenAngle() + 360) % 360
+      : alphaToHeading(e.alpha);
     if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
       updRaw(h);
       S.cSrc = 'abs';
+      S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h};
       hideCWarn();
     }
     return;
   }
   // ── Fallback relatif : uniquement si aucune source absolue disponible ──
-  // (ne pas écraser une source abs/ios avec un alpha non-référencé nord)
   if(S.cSrc === 'abs' || S.cSrc === 'ios') return;
   if(e.alpha != null){
-    updRaw((360 - e.alpha + 360) % 360);
+    updRaw(alphaToHeading(e.alpha));
     if(S.cSrc !== 'rel'){
       S.cSrc = 'rel';
       if(!cRelTimer) cRelTimer = setTimeout(()=>{
@@ -1227,39 +1265,47 @@ const TOPS=[28,35,42,22,48];
 function renderLoop(){
   try{
     const h=getH();
-    if(!cpBuilt){
-      const tr=document.getElementById('ctrack');
-      CPS.forEach(p=>{
-        const e=document.createElement('div');
-        e.className='clbl'+([0,90,180,270].includes(p.d)?' card':'');
-        e.textContent=p.l; e.dataset.d=p.d;
-        tr.appendChild(e);
-      });
-      cpBuilt=true;
-    }
-    if(h!==null){
-      const W=document.getElementById('ctrack').offsetWidth;
-      document.querySelectorAll('.clbl').forEach(e=>{
-        const df=ndeg(parseFloat(e.dataset.d)-h);
-        let x=W/2+df/FOV*W;
-        if(x<0)x=0;
-        if(x>W)x=W;
-        if(x<-40||x>W+40){e.style.display='none';return;}
-        e.style.display=''; e.style.left=x+'px';
-        e.style.opacity=Math.max(0,1-Math.abs(df)/FOV2*.8);
-      });
-      const hi=Math.round(h);
-      const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
-      const poiVis=poiEls.size;
-      document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}${poiVis?' · '+poiVis+'↑':''}`;
-      if(S.pois.length) updPOIs(h);
-    } else if(S.pois.length) {
-      // Pas de boussole : afficher les POIs triés par distance
-      updPOIs(null);
-    }
-  }catch(err){
-    console.warn('[renderLoop error]', err);
+  if(!cpBuilt){
+    const tr=document.getElementById('ctrack');
+    CPS.forEach(p=>{
+      const e=document.createElement('div');
+      e.className='clbl'+([0,90,180,270].includes(p.d)?' card':'');
+      e.textContent=p.l; e.dataset.d=p.d;
+      tr.appendChild(e);
+    });
+    cpBuilt=true;
   }
+  if(h!==null){
+    const W=document.getElementById('ctrack').offsetWidth;
+    document.querySelectorAll('.clbl').forEach(e=>{
+      const df=ndeg(parseFloat(e.dataset.d)-h);
+      let x=W/2+df/FOV*W;
+
+      if(x<0)x=0;
+      if(x>W)x=W;
+      if(x<-40||x>W+40){e.style.display='none';return;}
+      e.style.display=''; e.style.left=x+'px';
+      e.style.opacity=Math.max(0,1-Math.abs(df)/FOV2*.8);
+    });
+    const hi=Math.round(h);
+    const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
+    const poiVis=poiEls.size;
+    document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}${poiVis?' · '+poiVis+'↑':''}`;
+      // Mise à jour panel debug
+      if(S.dbgOpen && S.dbgRaw){
+        const {alpha,beta,gamma,h:dh}=S.dbgRaw;
+        const near=S.pois.length?S.pois[0]:null;
+        document.getElementById('dbgpanel').innerHTML=
+          `α=${alpha!=null?alpha.toFixed(1):'?'} β=${beta!=null?beta.toFixed(1):'?'} γ=${gamma!=null?gamma.toFixed(1):'?'}<br>`+
+          `Cap: ${hi}° (src:${S.cSrc||'?'}) | Écran:${getScreenAngle()}°<br>`+
+          (near?`POI:${near.name} brg=${Math.round(near.bearing)}° df=${Math.round(ndeg(near.bearing-hi))}°`:'');
+      }
+    if(S.pois.length) updPOIs(h);
+  } else if(S.pois.length) {
+    // Pas de boussole : afficher les POIs triés par distance
+    updPOIs(null);
+  }
+  }catch(err){console.warn('[renderLoop]',err);}
   requestAnimationFrame(renderLoop);
 }
 
@@ -1503,29 +1549,38 @@ function card(g){return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO'
 function fmt(m){return m<1000?Math.round(m)+' m':(m/1000).toFixed(m<10000?1:0)+' km';}
 
 
-// ── WATCHDOG : relance la boussole si elle s'arrête ──────────
+// ── WATCHDOG boussole ─────────────────────────────────────────────────────
 let _lastOriTime = 0;
 function _checkCompassAlive(){
-  if(Date.now() - _lastOriTime > 3000 && S.cSrc !== null){
-    // Plus de signal depuis 3s → re-registration
-    window.removeEventListener('deviceorientationabsolute', onOriAbs, true);
-    window.removeEventListener('deviceorientation', onOri, true);
-    window.addEventListener('deviceorientationabsolute', onOriAbs, true);
-    window.addEventListener('deviceorientation', onOri, true);
-    console.warn('[compass] watchdog: re-registered listeners');
+  if(Date.now()-_lastOriTime>3000 && S.cSrc!==null){
+    window.removeEventListener('deviceorientationabsolute',onOriAbs,true);
+    window.removeEventListener('deviceorientation',onOri,true);
+    window.addEventListener('deviceorientationabsolute',onOriAbs,true);
+    window.addEventListener('deviceorientation',onOri,true);
   }
 }
-setInterval(_checkCompassAlive, 3000);
-// Relance après retour en premier plan
-document.addEventListener('visibilitychange', ()=>{
-  if(document.visibilityState === 'visible'){
-    window.removeEventListener('deviceorientationabsolute', onOriAbs, true);
-    window.removeEventListener('deviceorientation', onOri, true);
-    window.addEventListener('deviceorientationabsolute', onOriAbs, true);
-    window.addEventListener('deviceorientation', onOri, true);
-    console.log('[compass] visibility restored, re-registered');
+setInterval(_checkCompassAlive,3000);
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='visible'){
+    window.removeEventListener('deviceorientationabsolute',onOriAbs,true);
+    window.removeEventListener('deviceorientation',onOri,true);
+    window.addEventListener('deviceorientationabsolute',onOriAbs,true);
+    window.addEventListener('deviceorientation',onOri,true);
   }
 });
+// Long-press sur le badge cap → toggle debug panel
+let _hdgTimer=null;
+document.getElementById('hdg').addEventListener('touchstart',()=>{
+  _hdgTimer=setTimeout(()=>{
+    S.dbgOpen=!S.dbgOpen;
+    document.getElementById('dbgpanel').style.display=S.dbgOpen?'block':'none';
+  },800);
+});
+document.getElementById('hdg').addEventListener('touchend',()=>clearTimeout(_hdgTimer));
+
+// Verrou orientation portrait si supporté
+try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}
+
 window.addEventListener('resize',()=>{poiEls.forEach(e=>e.remove());poiEls.clear();});
 </script>
 </body>
