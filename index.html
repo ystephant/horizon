@@ -77,6 +77,66 @@ border-radius:0
   color:var(--mu);font-size:18px;cursor:pointer;padding:4px 6px;
   font-family:'Nunito',sans-serif;line-height:1;
 }
+/* ── CLUSTER POI ─────────────────────────────────────────────── */
+.clust{position:fixed;left:0;top:0;transform:translateX(-50%);
+  display:flex;flex-direction:column;align-items:center;pointer-events:auto;
+  cursor:pointer;z-index:15;transition:opacity .2s}
+.clust-dot{background:var(--seadeep);color:#fff;border-radius:20px;
+  padding:6px 13px;font-family:'Nunito',sans-serif;font-size:12px;font-weight:800;
+  box-shadow:var(--shadow-md);border:2px solid rgba(255,255,255,.4);
+  display:flex;align-items:center;gap:5px;white-space:nowrap}
+.clust-line{width:1.5px;height:30px;background:linear-gradient(to bottom,var(--seadeep),transparent)}
+
+/* ── CLUSTER OVERLAY ─────────────────────────────────────────── */
+#clustov{position:fixed;inset:0;z-index:60;background:rgba(30,60,80,.45);
+  backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center;
+  padding-bottom:0}
+#clustov.on{display:flex}
+#clustbox{background:var(--cardsolid);border-radius:22px 22px 0 0;
+  width:100%;max-width:480px;max-height:70vh;overflow:hidden;
+  display:flex;flex-direction:column;box-shadow:0 -4px 24px rgba(58,127,168,.25)}
+#clusthdr{display:flex;align-items:center;justify-content:space-between;
+  padding:16px 18px 10px;border-bottom:1px solid var(--bord);flex-shrink:0}
+#clusttitle{font-family:'Lora',serif;font-size:16px;font-weight:700;color:var(--tx)}
+#clustsub{font-family:'Nunito',sans-serif;font-size:11px;color:var(--mu);margin-top:2px}
+#clustcl{background:none;border:none;font-size:20px;color:var(--mu);cursor:pointer;
+  padding:4px 6px;line-height:1;font-family:'Nunito',sans-serif}
+#clustlist{overflow-y:auto;padding:8px 0 env(safe-area-inset-bottom)}
+.clust-item{display:flex;align-items:center;gap:12px;padding:12px 18px;
+  border-bottom:1px solid rgba(91,158,201,.1);cursor:pointer;transition:background .15s}
+.clust-item:active{background:rgba(91,158,201,.08)}
+.clust-item:last-child{border-bottom:none}
+.ci-emoji{font-size:20px;width:28px;text-align:center;flex-shrink:0}
+.ci-info{flex:1}
+.ci-name{font-family:'Lora',serif;font-size:13px;font-weight:600;color:var(--tx);line-height:1.3}
+.ci-meta{font-family:'Nunito',sans-serif;font-size:10px;font-weight:700;
+  color:var(--sea);margin-top:2px}
+.ci-dist{font-family:'Lora',serif;font-size:13px;font-weight:700;color:var(--seadeep);
+  white-space:nowrap;flex-shrink:0}
+
+/* ── ROSE DES VENTS (fond caméra désactivée) ─────────────────── */
+#camrose{position:fixed;inset:0;z-index:1;background:#fff;
+  display:none;align-items:center;justify-content:center}
+#camrose.on{display:flex}
+#camrose svg{width:min(75vw,340px);height:min(75vw,340px);
+  filter:drop-shadow(0 2px 8px rgba(140,90,40,.12));transition:transform .1s linear}
+
+/* ── FILTRE KM FOURCHETTE ────────────────────────────────────── */
+#rangerow{display:flex;align-items:center;gap:8px;padding:4px 12px 5px;
+  border-top:1px solid rgba(91,158,201,.15);overflow-x:auto;
+  -webkit-overflow-scrolling:touch;scrollbar-width:none}
+#rangerow::-webkit-scrollbar{display:none}
+.rng-lbl{font-family:'Nunito',sans-serif;font-size:10px;font-weight:800;
+  color:var(--mu);white-space:nowrap;flex-shrink:0;letter-spacing:.06em;text-transform:uppercase}
+.rng-sep{font-family:'Nunito',sans-serif;font-size:11px;color:var(--mu);flex-shrink:0}
+.rpill{flex-shrink:0;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;
+  padding:4px 10px;border-radius:16px;border:1px solid var(--bord);
+  background:rgba(255,255,255,.6);color:var(--txlight);cursor:pointer;
+  transition:all .18s;white-space:nowrap}
+.rpill:active{transform:scale(.93)}
+.rpill.on{border-color:rgba(58,127,168,.7);background:rgba(91,158,201,.18);
+  color:var(--seadeep);font-weight:800}
+
 
 /* vignette douce style peinture — bords légèrement estompés */
 .vig{position:fixed;inset:0;z-index:5;background:radial-gradient(ellipse at center,transparent 45%,rgba(238,245,249,.35) 100%);pointer-events:none}
@@ -374,6 +434,35 @@ letter-spacing:-.01em
 </div>
 
 <!-- CAMERA -->
+<!-- ROSE DES VENTS (fond caméra off) -->
+<div id="camrose">
+  <svg id="rosesvg" viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <!-- Cercle fond -->
+    <circle cx="100" cy="100" r="96" fill="#fffdf7" stroke="#c8943a" stroke-width="1.5" opacity=".7"/>
+    <!-- Branches diagonales (SO-NE, SE-NO) -->
+    <polygon points="100,100 92,50 108,50" fill="#f5e6c0" stroke="#c8943a" stroke-width=".8" opacity=".6"/>
+    <polygon points="100,100 92,150 108,150" fill="#f5e6c0" stroke="#c8943a" stroke-width=".8" opacity=".6"/>
+    <polygon points="100,100 50,92 50,108" fill="#f5e6c0" stroke="#c8943a" stroke-width=".8" opacity=".6"/>
+    <polygon points="100,100 150,92 150,108" fill="#f5e6c0" stroke="#c8943a" stroke-width=".8" opacity=".6"/>
+    <!-- Flèche NORD -->
+    <polygon points="100,14 93,100 107,100" fill="#f5d87a" stroke="#c8943a" stroke-width="1.2"/>
+    <!-- Flèche SUD -->
+    <polygon points="100,186 93,100 107,100" fill="#faf6ee" stroke="#c8943a" stroke-width="1.2"/>
+    <!-- Flèche EST -->
+    <polygon points="186,100 100,93 100,107" fill="#faf6ee" stroke="#c8943a" stroke-width="1.2"/>
+    <!-- Flèche OUEST -->
+    <polygon points="14,100 100,93 100,107" fill="#faf6ee" stroke="#c8943a" stroke-width="1.2"/>
+    <!-- Cercle central -->
+    <circle cx="100" cy="100" r="9" fill="#f5d87a" stroke="#c8943a" stroke-width="1.5"/>
+    <circle cx="100" cy="100" r="4" fill="#c8943a"/>
+    <!-- Labels cardinaux -->
+    <text x="100" y="10" text-anchor="middle" font-family="Nunito,sans-serif" font-size="13" font-weight="800" fill="#c8943a">N</text>
+    <text x="100" y="198" text-anchor="middle" font-family="Nunito,sans-serif" font-size="11" font-weight="700" fill="#8b5e3c" opacity=".7">S</text>
+    <text x="193" y="104" text-anchor="middle" font-family="Nunito,sans-serif" font-size="11" font-weight="700" fill="#8b5e3c" opacity=".7">E</text>
+    <text x="7" y="104" text-anchor="middle" font-family="Nunito,sans-serif" font-size="11" font-weight="700" fill="#8b5e3c" opacity=".7">O</text>
+  </svg>
+</div>
+
 <video id="cam" autoplay playsinline muted></video>
 <div class="vig"></div>
 
@@ -403,6 +492,7 @@ letter-spacing:-.01em
 <div id="fw">
   <div class="frow" id="cfrow"></div>
   <div class="frow" id="dfrow"></div>
+  <div id="rangerow"></div>
 </div>
 
 <!-- HUD -->
@@ -430,6 +520,20 @@ letter-spacing:-.01em
   </div>
   <button class="gpp-btn" onclick="document.getElementById('gpspopup').classList.remove('on');openMap()">Définir 📍</button>
   <button class="gpp-close" onclick="document.getElementById('gpspopup').classList.remove('on')">✕</button>
+</div>
+
+<!-- CLUSTER OVERLAY -->
+<div id="clustov" onclick="if(event.target===this)closeClust()">
+  <div id="clustbox">
+    <div id="clusthdr">
+      <div>
+        <div id="clusttitle">Points d'intérêt</div>
+        <div id="clustsub"></div>
+      </div>
+      <button id="clustcl" onclick="closeClust()">✕</button>
+    </div>
+    <div id="clustlist"></div>
+  </div>
 </div>
 
 <!-- LOADING -->
@@ -533,8 +637,8 @@ const S = {
   allPOIs:[], pois:[],
   fetchLat:null, fetchLng:null,
   dbgOpen:false, dbgRaw:null,
-  maxD:10000, band:false,  // band=false: montre de 0 à maxD
-  bandPct:0.20,            // ±20% by default (e.g. 50km → 40-60km)
+  maxD:10000, minD:0,      // fourchette distance
+  band:false, bandPct:0.20,
   cat:'all',
   detPOI:null,
   centerPOI:null,          // POI closest to crosshair center
@@ -542,6 +646,9 @@ const S = {
 let lmap=null, lmk=null, pLat=null, pLng=null;
 let cRelTimer=null;
 const poiEls=new Map();
+const clustEls=new Map(); // clusters affichés
+const CLUSTER_PX=55;    // distance horiz. px pour fusionner
+const SMOOTH=0.25;       // lissage position (0=figé, 1=immédiat)
 
 // ═══════════════════════════════════════════
 // PERMISSIONS FLOW
@@ -580,8 +687,9 @@ async function requestAllPermissions(){
       );
       document.getElementById('cam').srcObject = stream;
       setPermRow('cam','ok');
+      document.getElementById('camrose').classList.remove('on');
     }catch(e){ setPermRow('cam','no'); }
-  } else { setPermRow('cam','no'); }
+  } else { setPermRow('cam','no'); document.getElementById('camrose').classList.add('on'); }
 
   // ── GPS ────────────────────────────────────────────────────────────
   // On tente mais on ne bloque PAS si ça échoue — position manuelle possible
@@ -870,6 +978,10 @@ function chOff(d){
 // ═══════════════════════════════════════════
 // FILTERS BUILD
 // ═══════════════════════════════════════════
+const MINS = [
+  {l:'0',v:0},{l:'500m',v:500},{l:'1km',v:1000},
+  {l:'2km',v:2000},{l:'5km',v:5000},{l:'10km',v:10000},{l:'25km',v:25000}
+];
 function buildFilters(){
   // Categories
   const cr=document.getElementById('cfrow'); cr.innerHTML='';
@@ -880,29 +992,45 @@ function buildFilters(){
     b.onclick=()=>selCat(c.id);
     cr.appendChild(b);
   });
-  // Distances
+  // Max distance
   const dr=document.getElementById('dfrow'); dr.innerHTML='';
-  // Band width selector: strict or wide
-  const bw=document.createElement('button');
-  bw.className='pill on'; bw.id='bwpill';
-  bw.textContent=S.bandPct===0.2?'±20%':'±10%';
-  bw.title='Largeur de la fourchette de distance';
-  bw.onclick=()=>{
-    S.bandPct=S.bandPct===0.20?0.10:0.20;
-    bw.textContent=S.bandPct===0.2?'±20%':'±10%';
-    applyFilter();
-  };
-  dr.appendChild(bw);
+  const lbMax=document.createElement('span');
+  lbMax.className='rng-lbl'; lbMax.textContent='MAX';
+  dr.appendChild(lbMax);
   DISTS.forEach(d=>{
     const b=document.createElement('button');
     b.className='pill'+(d.v===S.maxD?' on':'');
     b.textContent=d.l;
     b.onclick=()=>{
       S.maxD=d.v;
-      document.querySelectorAll('#dfrow .pill:not(#bwpill)').forEach((x,i)=>x.classList.toggle('on',DISTS[i].v===d.v));
+      if(S.minD>=S.maxD){S.minD=0; _rebuildMinRow();}
+      document.querySelectorAll('#dfrow .pill').forEach((x,i)=>{
+        if(i===0) return; // skip label
+        x.classList.toggle('on',DISTS[i-1].v===d.v);
+      });
       applyFilter();
     };
     dr.appendChild(b);
+  });
+  // Min distance
+  _rebuildMinRow();
+}
+function _rebuildMinRow(){
+  const rr=document.getElementById('rangerow'); rr.innerHTML='';
+  const lbMin=document.createElement('span');
+  lbMin.className='rng-lbl'; lbMin.textContent='MIN';
+  rr.appendChild(lbMin);
+  MINS.forEach(d=>{
+    const b=document.createElement('button');
+    b.className='rpill'+(d.v===S.minD?' on':'');
+    b.textContent=d.l;
+    b.onclick=()=>{
+      S.minD=d.v;
+      if(S.minD>=S.maxD){S.maxD=DISTS[DISTS.findIndex(x=>x.v>S.minD)]?.v||S.maxD;}
+      document.querySelectorAll('#rangerow .rpill').forEach((x,i)=>x.classList.toggle('on',MINS[i].v===d.v));
+      applyFilter();
+    };
+    rr.appendChild(b);
   });
 }
 
@@ -916,35 +1044,23 @@ function selCat(id){
 // FILTER LOGIC
 // ═══════════════════════════════════════════
 function applyFilter(){
-  // Band: for small distances (≤2km) always show from 0
-  // For larger: strict window around selected distance
-  let dMin=0, dMax=S.maxD;
-  if(S.band && S.maxD>2000){
-    dMin = S.maxD*(1-S.bandPct);
-    dMax = S.maxD*(1+S.bandPct);
-  }
-
+  const dMin=S.minD, dMax=S.maxD;
   const filtered=S.allPOIs.filter(p=>{
-    if(p.dist<dMin||p.dist>dMax)return false;
+    if(p.dist<dMin||p.dist>dMax) return false;
     return S.cat==='all'||p.type.cat===S.cat;
   });
-
-  // Max 25 POIs spread across the band (5 buckets × 5)
-  const bw=(dMax-dMin)/5;
+  // Max 25 POIs répartis en 5 tranches
+  const bw=(dMax-dMin)/5||1;
   const buckets=[[],[],[],[],[]];
   filtered.forEach(p=>{
-    const bi=Math.min(4,Math.floor((p.dist-dMin)/Math.max(bw,1)));
+    const bi=Math.min(4,Math.floor((p.dist-dMin)/bw));
     if(buckets[bi].length<5) buckets[bi].push(p);
   });
   S.pois=buckets.flat();
-
   poiEls.forEach(e=>e.remove()); poiEls.clear();
-
-  const rng=S.band&&S.maxD>2000
-    ?`${fmt(dMin)} – ${fmt(dMax)}`
-    :`0 – ${fmt(dMax)}`;
-  document.getElementById('pcnt').textContent=
-    `${S.pois.length} pts · ${rng}`;
+  clustEls.forEach(e=>e.remove()); clustEls.clear();
+  const rng=dMin>0?`${fmt(dMin)} – ${fmt(dMax)}`:`0 – ${fmt(dMax)}`;
+  document.getElementById('pcnt').textContent=`${S.pois.length} pts · ${rng}`;
 }
 
 // ═══════════════════════════════════════════
@@ -962,7 +1078,7 @@ function classifyByName(name){
   if(/\b(baie|golfe|anse |rade |fjord)/.test(n))                 return{emoji:'🌊',label:'Baie',cat:'coast'};
   if(/\bdétroit\b/.test(n))                                      return{emoji:'〰️',label:'Détroit',cat:'coast'};
   if(/\b(falaise|cliffs?)\b/.test(n))                            return{emoji:'🪨',label:'Falaise',cat:'coast'};
-  if(/\b(forêt|bois |woods?|forest)/.test(n))                    return{emoji:'🌲',label:'Forêt',cat:'wood'};
+  if(/\b(forêt|bois|woods?|forest)\b/.test(n))                    return{emoji:'🌲',label:'Forêt',cat:'wood'};
   if(/\b(plage|beach|spiaggia)/.test(n))                          return{emoji:'🏖',label:'Plage',cat:'beach'};
   if(/\b(lieu-dit|lieudit|hameau|écart|lieu dit)/.test(n))       return{emoji:'📌',label:'Lieu-dit',cat:'site'};
   return null; // inconnu → sera classifié comme ville par défaut
@@ -988,11 +1104,15 @@ async function safeFetch(url, opts={}, timeoutMs=10000, label=''){
 // Source 1 : Overpass — nodes "place" + natural (très précis)
 async function fetchOverpassLight(lat,lng,radiusM){
   const r = Math.min(radiusM*1.5, 100000);
-  const q = `[out:json][timeout:20];(
+  const q = `[out:json][timeout:25];(
 node["place"~"^(city|town|village|hamlet|suburb|island|islet|locality)$"](around:${r},${lat},${lng});
-node["natural"~"^(peak|volcano|cape|bay|beach|cliff)$"]["name"](around:${r},${lat},${lng});
+node["natural"~"^(peak|volcano|cape|bay|beach|cliff|wood)$"]["name"](around:${r},${lat},${lng});
 node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
-);out 600;`;
+way["natural"="wood"]["name"](around:${r},${lat},${lng});
+way["landuse"~"^(forest|wood)$"]["name"](around:${r},${lat},${lng});
+relation["natural"="wood"]["name"](around:${r},${lat},${lng});
+relation["landuse"~"^(forest|wood)$"]["name"](around:${r},${lat},${lng});
+);out center 600;`;
   const APIS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -1144,24 +1264,26 @@ function processPOIs(wikiItems, ovEls, ulat, ulng){
 // Classifie via tags OSM (source Overpass)
 function classifyOSM(t,name){
   if(!t)return{emoji:'📍',label:'Lieu',cat:'all'};
-  const p=t.place,n=t.natural,m=t.man_made,lu=t.landuse;
+  const p=t.place,n=t.natural,m=t.man_made,lu=t.landuse,le=t.leisure,to=t.tourism;
   const nm=(name||'').toLowerCase();
-  if(n==='wood'||lu==='forest')return{emoji:'🌲',label:'Forêt',cat:'wood'};
+  // ── Priorité 1 : tags OSM stricts ───────────────────────────
+  if(n==='wood'||lu==='forest'||lu==='wood')return{emoji:'🌲',label:'Forêt',cat:'wood'};
   if(m==='lighthouse')return{emoji:'🗼',label:'Phare',cat:'lh'};
-  if(p==='island'||p==='islet')return{emoji:'🏝️',label:'Île',cat:'isle'};
+  if(p==='island'||p==='islet'||n==='island')return{emoji:'🏝️',label:'Île',cat:'isle'};
   if(n==='peak'||n==='volcano')return{emoji:'⛰️',label:'Sommet',cat:'mount'};
-  if(n==='cape'||n==='peninsula'||n==='headland'||
-     nm.startsWith('pointe')||nm.startsWith('cap ')||nm.startsWith('cap-')||
-     nm.includes("presqu'île"))
-    return{emoji:'🗺️',label:'Cap / Pointe',cat:'coast'};
-  if(n==='bay')return{emoji:'🌊',label:'Baie',cat:'coast'};
+  if(n==='cape'||n==='peninsula'||n==='headland')return{emoji:'🗺️',label:'Cap / Pointe',cat:'coast'};
+  if(n==='bay'||n==='gulf')return{emoji:'🌊',label:'Baie',cat:'coast'};
   if(n==='strait')return{emoji:'〰️',label:'Détroit',cat:'coast'};
-  if(n==='cliff')return{emoji:'🪨',label:'Falaise',cat:'coast'};
+  if(n==='cliff'||n==='rock')return{emoji:'🪨',label:'Falaise',cat:'coast'};
+  if(n==='beach'||le==='beach_resort'||to==='beach')return{emoji:'🏖',label:'Plage',cat:'beach'};
+  // ── Priorité 2 : détection par nom (avant les tags place) ───
+  const byName = classifyByName(name);
+  if(byName) return byName;
+  // ── Priorité 3 : tags place ──────────────────────────────────
   if(p==='city')return{emoji:'🏙️',label:'Ville',cat:'city'};
   if(p==='town')return{emoji:'🏘️',label:'Bourg',cat:'city'};
   if(p==='village'||p==='hamlet'||p==='suburb')return{emoji:'🏡',label:'Village',cat:'city'};
   if(p==='locality'||p==='isolated_dwelling')return{emoji:'📌',label:'Lieu-dit',cat:'site'};
-  if(n==='beach'||t?.leisure==='beach_resort'||t?.tourism==='beach')return{emoji:'🏖',label:'Plage',cat:'beach'};
   return{emoji:'📍',label:'Lieu',cat:'all'};
 }
 
@@ -1288,6 +1410,9 @@ function renderLoop(){
     const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
     const poiVis=poiEls.size;
     document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}${poiVis?' · '+poiVis+'↑':''}`;
+      // Rotation rose des vents
+      const roseSvg=document.getElementById('rosesvg');
+      if(roseSvg) roseSvg.style.transform=`rotate(${-hi}deg)`;
       // Mise à jour panel debug
       if(S.dbgOpen && S.dbgRaw){
         const {alpha,beta,gamma,h:dh}=S.dbgRaw;
@@ -1308,38 +1433,94 @@ function renderLoop(){
 
 function updPOIs(h){
   const W=document.getElementById('ctrack').offsetWidth;
-  const vis=[];
-  let bestDf=Infinity, bestPOI=null;  // FIX: was undefined → ReferenceError
-  // If no compass, show all POIs centered (sorted by distance)
-  const useHeading = h !== null;
-  const effectiveH = useHeading ? h : 0;
-  for(const p of S.pois){
-    const df = useHeading ? ndeg(p.bearing - effectiveH) : 0;
-    if(useHeading && Math.abs(df)>FOV2*1.2) continue;
-    vis.push({p, df});
-  }
-  // Remove POIs that left the FOV (safe iteration)
-  const _toRm=[];
-  for(const[n]of poiEls){ if(!vis.find(v=>v.p.name===n)) _toRm.push(n); }
-  _toRm.forEach(n=>{ poiEls.get(n).remove(); poiEls.delete(n); });
-  for(const{p,df}of vis){
-    let e=poiEls.get(p.name);
-    if(!e){e=buildPOI(p);document.getElementById('poic').appendChild(e);poiEls.set(p.name,e);}
-    // position:fixed → coordonnées VIEWPORT directes, recalculées chaque frame
-   let xPx  = W / 2 + (df / FOV2) * (W / 2);
+  const H=window.innerHeight;
+  const useHeading=h!==null;
+  const effectiveH=useHeading?h:0;
 
-    if(xPx < 0) xPx = 0;
-    if(xPx > W) xPx = W;
-    const topPx = (parseFloat(e.dataset.topPct) / 100) * window.innerHeight;
-    e.style.left = xPx  + 'px';
-    e.style.top  = topPx + 'px';
+  // 1. Calculer position brute de chaque POI visible
+  const vis=[];
+  let bestDf=Infinity, bestPOI=null;
+  for(const p of S.pois){
+    const df=useHeading?ndeg(p.bearing-effectiveH):0;
+    if(useHeading&&Math.abs(df)>FOV2*1.2) continue;
+    const xRaw=W/2+(df/FOV2)*(W/2);
+    const xCl=Math.max(0,Math.min(W,xRaw));
+    vis.push({p,df,xCl});
     const a=Math.abs(df);
-    e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
-    const ch=Math.max(18,Math.round(55*(1-Math.min(p.dist/S.maxD,1))));
-    e.querySelector('.poc').style.height=ch+'px';
     if(a<bestDf&&a<12){bestDf=a;bestPOI=p;}
   }
-  // Center badge — "what's in front of me"
+
+  // 2. Supprimer POIs/clusters qui ne sont plus visibles
+  const visNames=new Set(vis.map(v=>v.p.name));
+  const _rmP=[]; for(const[n]of poiEls) if(!visNames.has(n)) _rmP.push(n);
+  _rmP.forEach(n=>{poiEls.get(n).remove();poiEls.delete(n);});
+
+  // 3. Clustering : regrouper les POIs proches horizontalement
+  vis.sort((a,b)=>a.xCl-b.xCl);
+  const groups=[]; let used=new Array(vis.length).fill(false);
+  for(let i=0;i<vis.length;i++){
+    if(used[i]) continue;
+    const grp=[vis[i]]; used[i]=true;
+    for(let j=i+1;j<vis.length;j++){
+      if(!used[j]&&Math.abs(vis[j].xCl-vis[i].xCl)<CLUSTER_PX){grp.push(vis[j]);used[j]=true;}
+    }
+    groups.push(grp);
+  }
+
+  // 4. Identifier les clusters actifs (clé = noms triés)
+  const activeClustKeys=new Set();
+  for(const grp of groups){
+    if(grp.length>1) activeClustKeys.add(grp.map(v=>v.p.name).sort().join('|'));
+  }
+  // Supprimer clusters disparus
+  const _rmC=[]; for(const[k]of clustEls) if(!activeClustKeys.has(k)) _rmC.push(k);
+  _rmC.forEach(k=>{clustEls.get(k).remove();clustEls.delete(k);});
+
+  // 5. Rendre chaque groupe
+  const poic=document.getElementById('poic');
+  for(const grp of groups){
+    const xAvg=grp.reduce((s,v)=>s+v.xCl,0)/grp.length;
+    if(grp.length===1){
+      // POI individuel
+      const {p,df}=grp[0];
+      let e=poiEls.get(p.name);
+      if(!e){e=buildPOI(p);poic.appendChild(e);poiEls.set(p.name,e);}
+      // Lissage anti-tremblement
+      const prevX=parseFloat(e.dataset.smX||xAvg);
+      const smX=prevX+(xAvg-prevX)*SMOOTH;
+      e.dataset.smX=smX;
+      const topPx=(parseFloat(e.dataset.topPct)/100)*H;
+      e.style.left=smX+'px';
+      e.style.top=topPx+'px';
+      const a=Math.abs(df);
+      e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
+      const ch=Math.max(18,Math.round(55*(1-Math.min(p.dist/S.maxD,1))));
+      e.querySelector('.poc').style.height=ch+'px';
+    } else {
+      // Cluster
+      const key=grp.map(v=>v.p.name).sort().join('|');
+      let ce=clustEls.get(key);
+      if(!ce){
+        const sorted=[...grp].sort((a,b)=>a.p.dist-b.p.dist);
+        ce=buildCluster(sorted,key);
+        poic.appendChild(ce);
+        clustEls.set(key,ce);
+      }
+      // Lissage cluster
+      const prevX=parseFloat(ce.dataset.smX||xAvg);
+      const smX=prevX+(xAvg-prevX)*SMOOTH;
+      ce.dataset.smX=smX;
+      ce.style.left=smX+'px';
+      ce.style.top='38%';
+      // Cacher POIs individuels du cluster
+      for(const v of grp){
+        const pe=poiEls.get(v.p.name);
+        if(pe){pe.remove();poiEls.delete(v.p.name);}
+      }
+    }
+  }
+
+  // 6. Badge "ce qui est devant moi"
   const badge=document.getElementById('cfocus');
   if(bestPOI){
     document.getElementById('cfn').textContent=bestPOI.name;
@@ -1350,6 +1531,40 @@ function updPOIs(h){
     badge.classList.remove('on');
   }
 }
+
+function buildCluster(sorted, key){
+  const ce=document.createElement('div');
+  ce.className='clust';
+  ce.dataset.smX='0';
+  const dirs=sorted.map(v=>card(v.p.bearing));
+  const uniqDir=[...new Set(dirs)];
+  ce.innerHTML=`<div class="clust-line"></div>
+<div class="clust-dot">📍 ${sorted.length} POI · ${uniqDir[0]||''}</div>`;
+  ce.addEventListener('click',()=>openClust(sorted));
+  return ce;
+}
+
+function openClust(sorted){
+  const dir=card(sorted[0].p.bearing);
+  document.getElementById('clusttitle').textContent=`${sorted.length} points · direction ${dir}`;
+  document.getElementById('clustsub').textContent=`Du plus proche au plus lointain`;
+  const list=document.getElementById('clustlist');
+  list.innerHTML='';
+  sorted.forEach(v=>{
+    const div=document.createElement('div');
+    div.className='clust-item';
+    div.innerHTML=`<span class="ci-emoji">${v.p.type.emoji}</span>
+<div class="ci-info">
+  <div class="ci-name">${v.p.name}</div>
+  <div class="ci-meta">${v.p.type.label.toUpperCase()} · ${Math.round(v.p.bearing)}° ${card(v.p.bearing)}</div>
+</div>
+<span class="ci-dist">${fmt(v.p.dist)}</span>`;
+    div.addEventListener('click',()=>{closeClust();openDet(v.p);});
+    list.appendChild(div);
+  });
+  document.getElementById('clustov').classList.add('on');
+}
+function closeClust(){document.getElementById('clustov').classList.remove('on');}
 
 function buildPOI(p){
   const e=document.createElement('div');
@@ -1578,7 +1793,7 @@ document.getElementById('hdg').addEventListener('touchend',()=>clearTimeout(_hdg
 // Verrou orientation portrait si supporté
 try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}
 
-window.addEventListener('resize',()=>{poiEls.forEach(e=>e.remove());poiEls.clear();});
+window.addEventListener('resize',()=>{poiEls.forEach(e=>e.remove());poiEls.clear();clustEls.forEach(e=>e.remove());clustEls.clear();});
 </script>
 </body>
 </html>
