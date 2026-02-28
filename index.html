@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
-  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
   <meta name="theme-color" content="#e8f2f7"/>
   <title>Mon Horizon</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
@@ -217,7 +217,7 @@ border-radius:0
 #cwarn{position:fixed;top:106px;left:50%;transform:translateX(-50%);z-index:25;background:rgba(200,148,58,.12);border:1px solid rgba(200,148,58,.5);border-radius:20px;padding:5px 14px;font-family:'Nunito',sans-serif;font-size:10px;font-weight:700;color:var(--hull);pointer-events:auto;cursor:pointer;display:none;box-shadow:var(--shadow)}
 
 /* ── STARTUP SCREEN ──────────────────────────────────────── */
-#startup{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#daeef8 0%,#eef5f9 40%,#f5e9d0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:32px;overflow-y:auto}
+#startup{position:fixed;inset:0;z-index:100;background:linear-gradient(160deg,#daeef8 0%,#eef5f9 40%,#f5e9d0 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:32px;overflow-y:auto}
 .slogo{
 font-family:'Lora',serif;
 font-size:25px;
@@ -296,7 +296,7 @@ letter-spacing:-.01em
 #deniedov .d-continue{width:100%;max-width:310px;background:rgba(91,158,201,.1);border:1px solid var(--bord);border-radius:13px;padding:12px;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;color:var(--txlight);cursor:pointer}
 
 /* ── LOGO IMAGE ──────────────────────────────────────────── */
-.d-logo-img{display:block;margin:0 auto 6px;width:500px;height:auto;object-fit:contain}
+.d-logo-img{display:block;margin:0 auto 6px;width:60px;height:auto;object-fit:contain}
 </style>
 </head>
 <body>
@@ -516,7 +516,7 @@ const CATS = [
   {id:'beach', lb:'🏖 Plages',        cc:'#fcd34d'},
 ];
 const FOV = 75, FOV2 = FOV/2;
-const ALPHA = 0.6; // compass smoothing (higher = less lag)
+const ALPHA = 0.85; // compass smoothing (higher = less lag)
 
 // ═══════════════════════════════════════════
 // STATE
@@ -812,6 +812,7 @@ function onOri(e){
 }
 
 function updRaw(r){
+  _lastOriTime=Date.now();
   S.hRaw=r;
   if(S.hSm==null){S.hSm=r;return;}
   let d=r-S.hSm;
@@ -1224,37 +1225,40 @@ let cpBuilt=false;
 const TOPS=[28,35,42,22,48];
 
 function renderLoop(){
-  const h=getH();
-  if(!cpBuilt){
-    const tr=document.getElementById('ctrack');
-    CPS.forEach(p=>{
-      const e=document.createElement('div');
-      e.className='clbl'+([0,90,180,270].includes(p.d)?' card':'');
-      e.textContent=p.l; e.dataset.d=p.d;
-      tr.appendChild(e);
-    });
-    cpBuilt=true;
-  }
-  if(h!==null){
-    const W=document.getElementById('ctrack').offsetWidth;
-    document.querySelectorAll('.clbl').forEach(e=>{
-      const df=ndeg(parseFloat(e.dataset.d)-h);
-      let x=W/2+df/FOV*W;
-
-      if(x<0)x=0;
-      if(x>W)x=W;
-      if(x<-40||x>W+40){e.style.display='none';return;}
-      e.style.display=''; e.style.left=x+'px';
-      e.style.opacity=Math.max(0,1-Math.abs(df)/FOV2*.8);
-    });
-    const hi=Math.round(h);
-    const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
-    const poiVis=poiEls.size;
-    document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}${poiVis?' · '+poiVis+'↑':''}`;
-    if(S.pois.length) updPOIs(h);
-  } else if(S.pois.length) {
-    // Pas de boussole : afficher les POIs triés par distance
-    updPOIs(null);
+  try{
+    const h=getH();
+    if(!cpBuilt){
+      const tr=document.getElementById('ctrack');
+      CPS.forEach(p=>{
+        const e=document.createElement('div');
+        e.className='clbl'+([0,90,180,270].includes(p.d)?' card':'');
+        e.textContent=p.l; e.dataset.d=p.d;
+        tr.appendChild(e);
+      });
+      cpBuilt=true;
+    }
+    if(h!==null){
+      const W=document.getElementById('ctrack').offsetWidth;
+      document.querySelectorAll('.clbl').forEach(e=>{
+        const df=ndeg(parseFloat(e.dataset.d)-h);
+        let x=W/2+df/FOV*W;
+        if(x<0)x=0;
+        if(x>W)x=W;
+        if(x<-40||x>W+40){e.style.display='none';return;}
+        e.style.display=''; e.style.left=x+'px';
+        e.style.opacity=Math.max(0,1-Math.abs(df)/FOV2*.8);
+      });
+      const hi=Math.round(h);
+      const srcLabel={'ios':'🧭','abs':'🧭','rel':'⚠️',null:'?'}[S.cSrc]||'?';
+      const poiVis=poiEls.size;
+      document.getElementById('hdg').textContent=`${hi.toString().padStart(3,'0')}° ${card(hi)} ${srcLabel}${poiVis?' · '+poiVis+'↑':''}`;
+      if(S.pois.length) updPOIs(h);
+    } else if(S.pois.length) {
+      // Pas de boussole : afficher les POIs triés par distance
+      updPOIs(null);
+    }
+  }catch(err){
+    console.warn('[renderLoop error]', err);
   }
   requestAnimationFrame(renderLoop);
 }
@@ -1498,6 +1502,30 @@ function ndeg(d){d=((d%360)+360)%360;return d>180?d-360:d;}
 function card(g){return['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSO','SO','OSO','O','ONO','NO','NNO'][Math.round(g/22.5)%16];}
 function fmt(m){return m<1000?Math.round(m)+' m':(m/1000).toFixed(m<10000?1:0)+' km';}
 
+
+// ── WATCHDOG : relance la boussole si elle s'arrête ──────────
+let _lastOriTime = 0;
+function _checkCompassAlive(){
+  if(Date.now() - _lastOriTime > 3000 && S.cSrc !== null){
+    // Plus de signal depuis 3s → re-registration
+    window.removeEventListener('deviceorientationabsolute', onOriAbs, true);
+    window.removeEventListener('deviceorientation', onOri, true);
+    window.addEventListener('deviceorientationabsolute', onOriAbs, true);
+    window.addEventListener('deviceorientation', onOri, true);
+    console.warn('[compass] watchdog: re-registered listeners');
+  }
+}
+setInterval(_checkCompassAlive, 3000);
+// Relance après retour en premier plan
+document.addEventListener('visibilitychange', ()=>{
+  if(document.visibilityState === 'visible'){
+    window.removeEventListener('deviceorientationabsolute', onOriAbs, true);
+    window.removeEventListener('deviceorientation', onOri, true);
+    window.addEventListener('deviceorientationabsolute', onOriAbs, true);
+    window.addEventListener('deviceorientation', onOri, true);
+    console.log('[compass] visibility restored, re-registered');
+  }
+});
 window.addEventListener('resize',()=>{poiEls.forEach(e=>e.remove());poiEls.clear();});
 </script>
 </body>
