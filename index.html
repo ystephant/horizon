@@ -54,28 +54,28 @@ border-radius:0
 /* ── GPS POPUP ───────────────────────────────────────────── */
 #gpspopup{
   position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:40;
-  width:calc(100% - 24px);max-width:380px;
-  background:var(--card);border:1.5px solid var(--bord);border-radius:16px;
-  padding:14px 15px;display:none;align-items:center;gap:12px;
-  box-shadow:var(--shadow-md);backdrop-filter:blur(12px);
-  animation:fadeIn .3s ease;
+  width:calc(100% - 32px);max-width:340px;
+  background:var(--card);border:1.5px solid var(--bord);border-radius:20px;
+  padding:22px 20px 18px;display:none;flex-direction:column;align-items:center;gap:14px;
+  box-shadow:var(--shadow-md);backdrop-filter:blur(16px);
+  animation:fadeIn .3s ease;text-align:center;
 }
 #gpspopup.on{display:flex}
 @keyframes slideUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
-@keyframes fadeIn{from{opacity:0;transform:translate(-50%,-48%)}to{opacity:1;transform:translate(-50%,-50%)}}
-.gpp-icon{font-size:22px;flex-shrink:0}
-.gpp-txt{flex:1}
-.gpp-title{font-weight:800;font-size:13px;color:var(--tx);margin-bottom:2px}
-.gpp-desc{font-size:11px;color:var(--txlight);line-height:1.4}
+@keyframes fadeIn{from{opacity:0;transform:translate(-50%,-46%)}to{opacity:1;transform:translate(-50%,-50%)}}
+.gpp-icon{font-size:36px;line-height:1}
+.gpp-txt{width:100%}
+.gpp-title{font-weight:800;font-size:15px;color:var(--tx);margin-bottom:6px}
+.gpp-desc{font-size:12px;color:var(--txlight);line-height:1.6}
 .gpp-btn{
-  flex-shrink:0;background:var(--seadeep);color:#fff;border:none;
-  border-radius:10px;padding:8px 13px;font-family:'Nunito',sans-serif;
-  font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;
+  width:100%;background:var(--seadeep);color:#fff;border:none;
+  border-radius:13px;padding:13px;font-family:'Nunito',sans-serif;
+  font-size:14px;font-weight:800;cursor:pointer;
 }
 .gpp-close{
-  position:absolute;top:8px;right:10px;background:none;border:none;
-  color:var(--mu);font-size:14px;cursor:pointer;padding:2px 4px;
-  font-family:'Nunito',sans-serif;
+  position:absolute;top:10px;right:12px;background:none;border:none;
+  color:var(--mu);font-size:18px;cursor:pointer;padding:4px 6px;
+  font-family:'Nunito',sans-serif;line-height:1;
 }
 
 /* vignette douce style peinture — bords légèrement estompés */
@@ -772,71 +772,68 @@ function showGPSHelp(c){
 // Ordre de priorité des sources (plus élevé = meilleur)
 const SRC_PRIORITY = {ios:3, abs:2, rel:1, null:0};
 
-// ── Récupère la correction due à l'orientation de l'écran ───────────────
+// ── BOUSSOLE ─────────────────────────────────────────────────────────────
+// Règle de base : on N'utilise PAS beta/gamma pour corriger le cap.
+// La formule "tilt compensation" est conçue pour téléphone à plat.
+// En mode AR vertical (beta≈90°), elle crée exactement le bug nord↔sud.
+//
+// Solution :
+//   iOS  → webkitCompassHeading  (déjà corrigé par le système)
+//   Android absolute → (360 - alpha) % 360  (formule directe, fiable)
+//
+// Le seul ajustement nécessaire : l'orientation de l'écran (portrait/paysage).
+// ─────────────────────────────────────────────────────────────────────────
+
 function getScreenAngle(){
-  if(screen.orientation && typeof screen.orientation.angle==='number') return screen.orientation.angle;
-  if(typeof window.orientation==='number') return window.orientation;
+  // Retourne l'angle de rotation de l'écran en degrés (0 = portrait)
+  try{
+    if(screen.orientation && typeof screen.orientation.angle === 'number')
+      return screen.orientation.angle;
+  }catch(e){}
+  if(typeof window.orientation === 'number') return window.orientation;
   return 0;
 }
 
-// ── Calcul du cap avec compensation inclinaison (tilt) ───────────────────
-// Formule W3C qui fonctionne quelle que soit l'inclinaison du téléphone.
-// Pour beta≈90° (téléphone vertical AR) et gamma≈0° elle donne le même
-// résultat que (360-alpha) mais elle est correcte pour tous les angles.
-function computeHeading(alpha, beta, gamma){
-  const toR = Math.PI/180;
-  const a = alpha*toR, b = beta*toR, g = gamma*toR;
-  // Vecteur projeté du nord dans le plan de l'écran
-  const Vx = -Math.cos(a)*Math.sin(g) - Math.sin(a)*Math.sin(b)*Math.cos(g);
-  const Vy = -Math.sin(a)*Math.sin(g) + Math.cos(a)*Math.sin(b)*Math.cos(g);
-  let h = Math.atan2(Vx, Vy)*180/Math.PI;
-  return (h + 360) % 360;
-}
-
-// ── Convertit alpha seul avec correction orientation écran ───────────────
 function alphaToHeading(alpha){
-  const screenAngle = getScreenAngle();
-  return (360 - alpha + screenAngle + 360) % 360;
+  // Formule Android standard : boussole = 360 - alpha (mesure inverse)
+  // + compensation orientation écran (0° en portrait, 90° en paysage)
+  const sa = getScreenAngle();
+  return (360 - alpha + sa + 360) % 360;
 }
 
 function onOriAbs(e){
   // deviceorientationabsolute : nord magnétique garanti
-  if(e.alpha==null) return;
-  // Utilise la compensation tilt si beta/gamma disponibles, sinon alpha seul
-  const h = (e.beta!=null && e.gamma!=null)
-    ? (computeHeading(e.alpha, e.beta, e.gamma) + getScreenAngle() + 360) % 360
-    : alphaToHeading(e.alpha);
-  if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
-    updRaw(h);
-    S.cSrc = 'abs';
-    S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h};
-    hideCWarn();
-  }
+  if(e.alpha == null) return;
+  if(SRC_PRIORITY['abs'] < (SRC_PRIORITY[S.cSrc]||0)) return;
+  const h = alphaToHeading(e.alpha);
+  updRaw(h);
+  S.cSrc = 'abs';
+  S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h, sa:getScreenAngle()};
+  hideCWarn();
 }
 
 function onOri(e){
-  // ── iOS : webkitCompassHeading — toujours prioritaire ──────────────────
+  // ── iOS : webkitCompassHeading — source la plus fiable ───────────────
   if(e.webkitCompassHeading != null && e.webkitCompassHeading >= 0){
     updRaw(e.webkitCompassHeading);
     S.cSrc = 'ios';
-    S.dbgRaw = {alpha:e.webkitCompassHeading, beta:e.beta, gamma:e.gamma, h:e.webkitCompassHeading};
+    S.dbgRaw = {alpha:e.webkitCompassHeading, beta:e.beta, gamma:e.gamma,
+                h:e.webkitCompassHeading, sa:0};
     hideCWarn();
     return;
   }
-  // ── Android : event.absolute=true équivaut à deviceorientationabsolute ──
+  // ── Android absolute dans onOri (fallback si onOriAbs non déclenché) ─
   if(e.absolute === true && e.alpha != null){
-    const h = (e.beta!=null && e.gamma!=null)
-      ? (computeHeading(e.alpha, e.beta, e.gamma) + getScreenAngle() + 360) % 360
-      : alphaToHeading(e.alpha);
     if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
+      const h = alphaToHeading(e.alpha);
       updRaw(h);
       S.cSrc = 'abs';
-      S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h};
+      S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h, sa:getScreenAngle()};
       hideCWarn();
     }
     return;
   }
-  // ── Fallback relatif : uniquement si aucune source absolue disponible ──
+  // ── Fallback relatif (pas de nord absolu) ────────────────────────────
   if(S.cSrc === 'abs' || S.cSrc === 'ios') return;
   if(e.alpha != null){
     updRaw(alphaToHeading(e.alpha));
