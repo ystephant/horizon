@@ -676,7 +676,7 @@ letter-spacing:-.01em
 // CONFIG
 // ═══════════════════════════════════════════
 const DISTS = [
-  {l:'500m', v:500},   {l:'1km',  v:1000},
+  {l:'1km',  v:1000},
   {l:'2km',  v:2000},  {l:'5km',  v:5000},
   {l:'10km', v:10000}, {l:'25km', v:25000},
   {l:'50km', v:50000}, {l:'100km',v:100000},
@@ -706,7 +706,7 @@ const S = {
   allPOIs:[], pois:[],
   fetchLat:null, fetchLng:null,
   dbgOpen:false, dbgRaw:null,
-  maxD:10000, minD:0,      // fourchette distance
+  maxD:5000,  minD:0,      // fourchette distance
   band:false, bandPct:0.20,
   cat:'all',
   detPOI:null,
@@ -988,15 +988,24 @@ function getScreenAngle(){
   return 0;
 }
 
-// Formule W3C officielle — valide pour toute inclinaison du téléphone
-// alpha = rotation autour Z (boussole), beta = tangage, gamma = roulis
+// Formule W3C avec garde dégénérée et fallback robuste
+// alpha = rotation Z (boussole), beta = tangage, gamma = roulis
+// Sur Android tenu vertical (beta≈90°), la formule W3C est correcte.
+// Mais si |Vx|²+|Vy|² est trop petit (orientation extrême), elle diverge :
+// on retombe alors sur la formule plate (360-alpha) qui est stable.
 function tiltCompensatedHeading(alpha, beta, gamma){
   if(alpha == null) return null;
+  const sa = getScreenAngle();
+  // Fallback plat robuste
+  const flat = (360 - alpha + sa + 360) % 360;
+
+  // Pas de données beta/gamma → on utilise le fallback directement
+  if(beta == null) return flat;
+
   const toRad = Math.PI / 180;
   const a = alpha * toRad;
-  // Valeurs par défaut réalistes si le capteur ne les fournit pas
-  const b = (beta  ?? 90) * toRad;   // 90° = téléphone vertical (mode AR)
-  const g = (gamma ?? 0)  * toRad;   //  0° = téléphone non incliné latéralement
+  const b = beta  * toRad;
+  const g = (gamma ?? 0) * toRad;
 
   const cA = Math.cos(a), sA = Math.sin(a);
   const cB = Math.cos(b), sB = Math.sin(b);
@@ -1006,12 +1015,14 @@ function tiltCompensatedHeading(alpha, beta, gamma){
   const Vx = - cA * sG - sA * sB * cG;
   const Vy = - sA * sG + cA * sB * cG;
 
-  let h = Math.atan2(Vx, Vy) * 180 / Math.PI;
-  if(h < 0) h += 360;
+  // Garde dégénérée : si le vecteur horizontal est quasi-nul
+  // (phone à plat, ou inclinaison extrême), la formule devient instable.
+  // Seuil 0.15 ≈ phone incliné à moins de ~9° de l'horizontal → fallback.
+  const mag = Math.sqrt(Vx * Vx + Vy * Vy);
+  if(mag < 0.15) return flat;
 
-  // Compensation orientation écran (portrait = 0°, paysage = 90°)
-  // L'app force le portrait, mais on garde la correction pour robustesse
-  const sa = getScreenAngle();
+  let h = Math.atan2(Vx / mag, Vy / mag) * 180 / Math.PI;
+  if(h < 0) h += 360;
   return (h + sa + 360) % 360;
 }
 
@@ -1063,8 +1074,11 @@ function onOri(e){
 // ─── DIRECTION SNAP (flèches manuelles) ──────────────────────────────────
 let _manualLock = null; // direction verrouillée manuellement (null = libre)
 let _manualTimer = null;
-// Buffer pour initialisation rapide du cap (premières mesures)
-let _initBuf = [];
+
+// Rolling buffer anti-outlier (remplace _initBuf)
+const _HEAD_BUF = [];   // dernières N lectures validées
+const _HEAD_N   = 5;    // taille du buffer (≈250ms à 20Hz)
+let   _outlierCnt = 0;  // lectures consécutives déviantes
 
 function snapDir(deg){
   const dirs = ['cdirN','cdirW','cdirE','cdirS'];
@@ -1088,38 +1102,58 @@ function snapDir(deg){
   }, 8000);
 }
 
+// Moyenne circulaire d'un tableau de caps (degrés)
+function circMean(arr){
+  let sx=0, sy=0;
+  for(const a of arr){ sx+=Math.cos(a*Math.PI/180); sy+=Math.sin(a*Math.PI/180); }
+  return (Math.atan2(sy/arr.length, sx/arr.length)*180/Math.PI+360)%360;
+}
+
 function updRaw(r){
   _lastOriTime = Date.now();
   S.hRaw = r;
-  // Si un verrouillage manuel est actif, ignorer le capteur
   if(_manualLock !== null) return;
 
-  // ── Phase d'initialisation : accumuler 8 lectures puis snap direct ──
+  // ── Phase d'initialisation : remplir le buffer d'abord ──────────────
   if(S.hSm == null){
-    _initBuf.push(r);
-    if(_initBuf.length < 8) return; // attendre d'avoir assez d'échantillons
-    // Moyenne circulaire des premières lectures
-    let sx=0, sy=0;
-    _initBuf.forEach(a=>{ sx+=Math.cos(a*Math.PI/180); sy+=Math.sin(a*Math.PI/180); });
-    S.hSm = (Math.atan2(sy/8, sx/8)*180/Math.PI+360)%360;
-    _initBuf = [];
+    _HEAD_BUF.push(r);
+    if(_HEAD_BUF.length < _HEAD_N) return;
+    S.hSm = circMean(_HEAD_BUF);
     return;
   }
 
+  // Différence angulaire par rapport au cap actuel
   let d = r - S.hSm;
   if(d > 180) d -= 360; if(d < -180) d += 360;
 
   // Dead-zone micro-tremblement
   if(Math.abs(d) < 0.4) return;
 
-  // ── Lissage adaptatif : boost temporaire si rotation rapide ─────────
-  // S.alpha = niveau de base (user), boost si delta large (rotation rapide)
-  const speed = Math.abs(d); // °/event ≈ vitesse angulaire
-  // Au-delà de 8°/event on booste progressivement jusqu'à 1.0
+  // ── Rejet outlier : si saut > 45°, attendre 2 confirmations consécutives ──
+  // Évite que UN seul event aberrant (sensor reset, interférence) snap le cap.
+  if(Math.abs(d) > 45){
+    _outlierCnt++;
+    if(_outlierCnt < 2) return; // pas encore confirmé → ignorer
+  } else {
+    _outlierCnt = 0;
+  }
+
+  // Mettre à jour le buffer rolling (lectures validées)
+  _HEAD_BUF.push(r);
+  if(_HEAD_BUF.length > _HEAD_N) _HEAD_BUF.shift();
+
+  // ── Lissage adaptatif ────────────────────────────────────────────────
+  const speed = Math.abs(d);
   const boost = Math.min(Math.max((speed - 4) / 20, 0), 1);
   const alpha = S.alpha === 0 ? 0 : Math.min(S.alpha + (1 - S.alpha) * boost * 0.85, 1);
 
-  S.hSm = (S.hSm + alpha * d + 360) % 360;
+  if(alpha >= 0.9){
+    // Mode Directe : moyenne circulaire des 5 dernières lectures validées
+    // → lag max ≈ 250ms mais immunisé contre les outliers ponctuels
+    S.hSm = circMean(_HEAD_BUF);
+  } else {
+    S.hSm = (S.hSm + alpha * d + 360) % 360;
+  }
 }
 function getH(){return S.hSm==null?null:(S.hSm+S.hOff+360)%360;}
 function hideCWarn(){
@@ -1970,14 +2004,14 @@ function fmt(m){return m<1000?Math.round(m)+' m':(m/1000).toFixed(m<10000?1:0)+'
 // ── WATCHDOG boussole ─────────────────────────────────────────────────────
 let _lastOriTime = 0;
 function _checkCompassAlive(){
-  if(Date.now()-_lastOriTime>3000 && S.cSrc!==null){
+  if(Date.now()-_lastOriTime>800 && S.cSrc!==null){
     window.removeEventListener('deviceorientationabsolute',onOriAbs,true);
     window.removeEventListener('deviceorientation',onOri,true);
     window.addEventListener('deviceorientationabsolute',onOriAbs,true);
     window.addEventListener('deviceorientation',onOri,true);
   }
 }
-setInterval(_checkCompassAlive,3000);
+setInterval(_checkCompassAlive,800);
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='visible'){
     window.removeEventListener('deviceorientationabsolute',onOriAbs,true);
