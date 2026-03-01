@@ -156,9 +156,24 @@ border-radius:0
 /* ── HEADING BADGE ───────────────────────────────────────── */
 #hdg{position:fixed;top:56px;left:50%;transform:translateX(-50%);z-index:20;font-family:'Nunito',sans-serif;font-size:14px;font-weight:800;color:var(--seadeep);background:#f8f4ea;border:2px solid rgba(91,158,201,.35);border-radius:20px;padding:5px 18px;letter-spacing:.05em;pointer-events:none;box-shadow:var(--shadow)}
 
-/* ── MENU & BACK BUTTONS ─────────────────────────────────── */
-#mbtn{position:fixed;top:58px;left:12px;z-index:22;width:32px;height:32px;background:var(--card);border:1px solid var(--bord);border-radius:50%;cursor:pointer;backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;font-size:14px;color:var(--txlight);transition:all .2s;box-shadow:var(--shadow)}
-#mbtn:active{background:var(--seafoam);border-color:var(--bordhov)}
+/* ── SENSITIVITY BUTTON (remplace burger) ────────────────── */
+#sensibtn{position:fixed;top:58px;left:12px;z-index:22;height:32px;background:var(--card);border:1px solid var(--bord);border-radius:16px;cursor:pointer;backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-size:11px;font-weight:700;color:var(--seadeep);padding:0 10px;gap:5px;transition:all .2s;box-shadow:var(--shadow);white-space:nowrap}
+#sensibtn:active{background:var(--seafoam);border-color:var(--bordhov)}
+/* ── SENSITIVITY PANEL ───────────────────────────────────── */
+#senspanel{position:fixed;top:96px;left:10px;z-index:30;background:rgba(250,246,238,.97);border:1.5px solid var(--bord);border-radius:16px;padding:12px 14px;backdrop-filter:blur(16px);box-shadow:var(--shadow-md);display:none;min-width:190px}
+#senspanel.on{display:block}
+#senspanel h3{font-family:'Lora',serif;font-size:13px;font-weight:700;color:var(--tx);margin-bottom:8px;display:flex;align-items:center;gap:6px}
+#senspanel h3 button{margin-left:auto;background:none;border:none;color:var(--mu);font-size:15px;cursor:pointer;font-family:'Nunito',sans-serif;line-height:1;padding:0 2px}
+.slvl{display:flex;align-items:center;gap:8px;cursor:pointer;transition:background .15s;border-radius:8px;padding:6px 8px;border-bottom:1px solid rgba(91,158,201,.08)}
+.slvl:last-child{border-bottom:none}
+.slvl:active{background:rgba(91,158,201,.1)}
+.slvl-dot{width:10px;height:10px;border-radius:50%;background:var(--mu);flex-shrink:0;transition:background .2s}
+.slvl.on .slvl-dot{background:var(--seadeep);box-shadow:0 0 5px rgba(58,127,168,.5)}
+.slvl-lbl{font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;color:var(--txlight);flex:1}
+.slvl.on .slvl-lbl{color:var(--seadeep);font-weight:800}
+.slvl-bar{display:flex;gap:2px;align-items:center}
+.slvl-seg{width:6px;height:6px;border-radius:1px;background:rgba(91,158,201,.15)}
+.slvl.on .slvl-seg.fill,.slvl-seg.fill{background:var(--sea)}
 #backbtn{position:fixed;top:58px;right:12px;z-index:22;height:32px;background:var(--card);border:1px solid var(--bord);border-radius:16px;cursor:pointer;backdrop-filter:blur(10px);display:none;align-items:center;justify-content:center;font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;color:var(--txlight);padding:0 13px;gap:5px;transition:all .2s;box-shadow:var(--shadow);white-space:nowrap}
 #backbtn.on{display:flex}
 #backbtn:active{background:var(--seafoam)}
@@ -189,7 +204,7 @@ border-radius:0
 .frow{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:3px 12px}
 .frow::-webkit-scrollbar{display:none}
 #dfrow{background:#f8f4ea;padding:5px 0;border-top:1px solid rgba(91,158,201,.15)}
-.pill{flex-shrink:0;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--bord);background:rgba(255,255,255,.6);color:var(--txlight);cursor:pointer;transition:all .18s;white-space:nowrap;box-shadow:0 1px 4px rgba(58,127,168,.1)}
+.pill{flex-shrink:0;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--bord);background:rgba(255,255,255,.6);color:var(--txlight);cursor:pointer;transition:all .18s;white-space:nowrap;box-shadow:0 1px 4px rgba(58,127,168,.1);touch-action:manipulation;-webkit-touch-callout:none}
 .pill:active{transform:scale(.93)}
 .pill.on{border-color:var(--amberbd);background:var(--amberbg);color:var(--amber);font-weight:800}
 .cpill.on{border-color:var(--amberbd);background:var(--amberbg);color:var(--amber);font-weight:800}
@@ -487,8 +502,20 @@ letter-spacing:-.01em
 <!-- COMPASS -->
 <div id="cbar"><div id="ctrack"><div id="cctr"></div></div></div>
 <div id="hdg">---° N</div>
-<button id="mbtn" onclick="goMenu()">☰</button>
+<button id="sensibtn" onclick="toggleSens()">🧭 Sensibilité</button>
 <button id="backbtn" onclick="goMenu()">← Menu</button>
+
+<!-- SENSITIVITY PANEL -->
+<div id="senspanel">
+  <h3>🧭 Sensibilité boussole <button onclick="closeSens()">✕</button></h3>
+  <!-- niveaux : id, label, alpha de base, nb segments (sur 5) -->
+  <div class="slvl" data-alpha="0"    data-bars="0" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Figée</span><span class="slvl-bar"><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl" data-alpha="0.05" data-bars="1" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Douce</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl on" data-alpha="0.12" data-bars="2" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Normale</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl" data-alpha="0.28" data-bars="3" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Réactive</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl" data-alpha="0.55" data-bars="4" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Vive</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl" data-alpha="1"    data-bars="5" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Directe</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span></span></div>
+</div>
 
 <!-- DIRECTION ARROWS (left side: N & W — right side: E & S) -->
 <div id="cdirleft">
@@ -530,8 +557,8 @@ letter-spacing:-.01em
   </div>
   <div id="pcnt">—</div>
   <button class="hbtn g" onclick="openMap()">📍</button>
-  <button class="hbtn" id="srchbtn" onclick="openStats()" title="Stats POIs">Rechercher</button>
-  <button class="hbtn" onclick="doRefresh()">↻</button>
+  <button class="hbtn" id="srchbtn" onclick="openStats()" title="Stats POIs">🔍</button>
+  <button class="hbtn" onclick="doRefresh()">Rechercher</button>
 </div>
 
 <!-- DEBUG TOAST -->
@@ -651,7 +678,7 @@ const CATS = [
   {id:'beach', lb:'🏖 Plages',        cc:'#fcd34d'},
 ];
 const FOV = 75, FOV2 = FOV/2;
-const ALPHA = 0.08; // compass smoothing (lower = smoother, less jitter)
+// alpha géré dans S.alpha (user-configurable)
 
 // ═══════════════════════════════════════════
 // STATE
@@ -669,6 +696,7 @@ const S = {
   cat:'all',
   detPOI:null,
   centerPOI:null,          // POI closest to crosshair center
+  alpha:0.12,              // sensibilité boussole (0=figée, 1=directe)
 };
 let lmap=null, lmk=null, pLat=null, pLng=null;
 let cRelTimer=null;
@@ -747,10 +775,19 @@ async function requestAllPermissions(){
       } else { setPermRow('cmp','no'); }
     }catch(e){ setPermRow('cmp','no'); }
   } else {
-    // Android/desktop : pas de permission requise
+    // Android/desktop : pas de permission requise — marquer ok dès qu'un event arrive
     window.addEventListener('deviceorientationabsolute', onOriAbs, true);
     window.addEventListener('deviceorientation', onOri, true);
-    setPermRow('cmp','ok');
+    // Confirmer que ça marche réellement (1er event dans 2s)
+    const _cmpCheck = setTimeout(()=>setPermRow('cmp','no'), 2000);
+    const _cmpOkOnce = ()=>{
+      clearTimeout(_cmpCheck);
+      setPermRow('cmp','ok');
+      window.removeEventListener('deviceorientationabsolute', _cmpOkOnce, true);
+      window.removeEventListener('deviceorientation', _cmpOkOnce, true);
+    };
+    window.addEventListener('deviceorientationabsolute', _cmpOkOnce, true);
+    window.addEventListener('deviceorientation', _cmpOkOnce, true);
   }
 
   btn.disabled = false; btn.textContent = 'Autoriser les accès';
@@ -995,25 +1032,22 @@ function onOri(e){
 // ─── DIRECTION SNAP (flèches manuelles) ──────────────────────────────────
 let _manualLock = null; // direction verrouillée manuellement (null = libre)
 let _manualTimer = null;
+// Buffer pour initialisation rapide du cap (premières mesures)
+let _initBuf = [];
 
 function snapDir(deg){
-  // Verrouille le cap sur la direction choisie
   const dirs = ['cdirN','cdirW','cdirE','cdirS'];
   dirs.forEach(id => document.getElementById(id)?.classList.remove('locked'));
   const idMap = {0:'cdirN',90:'cdirE',180:'cdirS',270:'cdirW'};
   if(idMap[deg]) document.getElementById(idMap[deg])?.classList.add('locked');
-
   if(_manualLock === deg){
-    // Deuxième tap sur le même bouton → déverrouiller
     _manualLock = null;
     dirs.forEach(id => document.getElementById(id)?.classList.remove('locked'));
     return;
   }
   _manualLock = deg;
-  S.hSm = deg; // force le cap immédiatement
+  S.hSm = deg;
   S.hOff = 0;
-
-  // Auto-déverrouillage après 8 secondes si capteur présent
   if(_manualTimer) clearTimeout(_manualTimer);
   _manualTimer = setTimeout(()=>{
     if(_manualLock !== null){
@@ -1024,16 +1058,37 @@ function snapDir(deg){
 }
 
 function updRaw(r){
-  _lastOriTime=Date.now();
-  S.hRaw=r;
+  _lastOriTime = Date.now();
+  S.hRaw = r;
   // Si un verrouillage manuel est actif, ignorer le capteur
   if(_manualLock !== null) return;
-  if(S.hSm==null){S.hSm=r;return;}
-  let d=r-S.hSm;
-  if(d>180)d-=360; if(d<-180)d+=360;
-  // Dead-zone: ignorer les micro-variations < 0.4° pour éviter le tremblement
-  if(Math.abs(d)<0.4) return;
-  S.hSm=(S.hSm+ALPHA*d+360)%360;
+
+  // ── Phase d'initialisation : accumuler 8 lectures puis snap direct ──
+  if(S.hSm == null){
+    _initBuf.push(r);
+    if(_initBuf.length < 8) return; // attendre d'avoir assez d'échantillons
+    // Moyenne circulaire des premières lectures
+    let sx=0, sy=0;
+    _initBuf.forEach(a=>{ sx+=Math.cos(a*Math.PI/180); sy+=Math.sin(a*Math.PI/180); });
+    S.hSm = (Math.atan2(sy/8, sx/8)*180/Math.PI+360)%360;
+    _initBuf = [];
+    return;
+  }
+
+  let d = r - S.hSm;
+  if(d > 180) d -= 360; if(d < -180) d += 360;
+
+  // Dead-zone micro-tremblement
+  if(Math.abs(d) < 0.4) return;
+
+  // ── Lissage adaptatif : boost temporaire si rotation rapide ─────────
+  // S.alpha = niveau de base (user), boost si delta large (rotation rapide)
+  const speed = Math.abs(d); // °/event ≈ vitesse angulaire
+  // Au-delà de 8°/event on booste progressivement jusqu'à 1.0
+  const boost = Math.min(Math.max((speed - 4) / 20, 0), 1);
+  const alpha = S.alpha === 0 ? 0 : Math.min(S.alpha + (1 - S.alpha) * boost * 0.85, 1);
+
+  S.hSm = (S.hSm + alpha * d + 360) % 360;
 }
 function getH(){return S.hSm==null?null:(S.hSm+S.hOff+360)%360;}
 function hideCWarn(){
@@ -1047,6 +1102,29 @@ function chOff(d){
   if(S.hOff>180)S.hOff-=360;
   document.getElementById('offd').textContent=(S.hOff>=0?'+':'')+S.hOff+'°';
 }
+
+// ─── SENSITIVITY PANEL ────────────────────────────────────────────────────
+function toggleSens(){
+  const p=document.getElementById('senspanel');
+  p.classList.toggle('on');
+}
+function closeSens(){ document.getElementById('senspanel').classList.remove('on'); }
+function setSens(el){
+  document.querySelectorAll('.slvl').forEach(e=>e.classList.remove('on'));
+  el.classList.add('on');
+  S.alpha = parseFloat(el.dataset.alpha);
+  // Réinitialiser le cap pour que la nouvelle sensibilité soit appliquée proprement
+  if(S.alpha === 0){ /* figée : ne pas toucher hSm */ }
+  document.getElementById('sensibtn').textContent = '🧭 ' + el.querySelector('.slvl-lbl').textContent;
+}
+// Fermer le panel si on clique ailleurs
+document.addEventListener('pointerdown', e=>{
+  const p=document.getElementById('senspanel');
+  const b=document.getElementById('sensibtn');
+  if(p.classList.contains('on') && !p.contains(e.target) && !b.contains(e.target)){
+    p.classList.remove('on');
+  }
+});
 
 // ═══════════════════════════════════════════
 // FILTERS BUILD
@@ -1070,7 +1148,7 @@ function buildFilters(){
   const lbMax=document.createElement('span');
   lbMax.className='rng-lbl'; lbMax.textContent='MAX';
   dr.appendChild(lbMax);
-  DISTS.forEach(d=>{
+  DISTS.forEach((d,di)=>{
     const b=document.createElement('button');
     b.className='pill'+(d.v===S.maxD?' on':'');
     b.textContent=d.l;
@@ -1078,8 +1156,7 @@ function buildFilters(){
       S.maxD=d.v;
       if(S.minD>=S.maxD){S.minD=0; _rebuildMinRow();}
       document.querySelectorAll('#dfrow .pill').forEach((x,i)=>{
-        if(i===0) return; // skip label
-        x.classList.toggle('on',DISTS[i-1].v===d.v);
+        x.classList.toggle('on', DISTS[i].v===d.v);
       });
       applyFilter();
     };
