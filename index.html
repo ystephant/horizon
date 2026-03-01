@@ -271,7 +271,19 @@ border-radius:0
 #mmok:disabled{opacity:.35;cursor:not-allowed}
 #mmok:not(:disabled):active{opacity:.8}
 
-/* ── COMPASS CALIBRATE ───────────────────────────────────── */
+/* ── COMPASS MANUAL DIR BUTTONS ─────────────────────────── */
+#cdirleft,#cdirright{position:fixed;top:4px;z-index:21;display:flex;flex-direction:column;gap:2px;pointer-events:auto}
+#cdirleft{left:4px}
+#cdirright{right:4px}
+.cdir-pair{display:flex;gap:2px}
+.cdirb{font-family:'Nunito',sans-serif;font-size:9px;font-weight:800;
+  background:rgba(250,246,238,.9);border:1px solid rgba(91,158,201,.35);
+  border-radius:7px;padding:3px 5px;cursor:pointer;color:var(--seadeep);
+  line-height:1;letter-spacing:.02em;box-shadow:0 1px 4px rgba(58,127,168,.15);
+  transition:all .15s;white-space:nowrap;backdrop-filter:blur(8px)}
+.cdirb:active{background:rgba(91,158,201,.25);transform:scale(.92)}
+.cdirb.locked{background:rgba(91,158,201,.22);border-color:var(--sea);color:var(--seadeep);font-weight:800}
+
 #calw{position:fixed;top:136px;left:50%;transform:translateX(-50%);z-index:25;display:none;gap:6px;align-items:center;background:var(--card);border:1px solid var(--bord);border-radius:20px;padding:6px 11px;backdrop-filter:blur(12px);box-shadow:var(--shadow)}
 #calw.on{display:flex}
 #calw span{font-family:'Nunito',sans-serif;font-size:10px;font-weight:600;color:var(--mu)}
@@ -477,6 +489,21 @@ letter-spacing:-.01em
 <div id="hdg">---° N</div>
 <button id="mbtn" onclick="goMenu()">☰</button>
 <button id="backbtn" onclick="goMenu()">← Menu</button>
+
+<!-- DIRECTION ARROWS (left side: N & W — right side: E & S) -->
+<div id="cdirleft">
+  <div class="cdir-pair">
+    <button class="cdirb" id="cdirN" onclick="snapDir(0)"   title="Nord">↑N</button>
+    <button class="cdirb" id="cdirW" onclick="snapDir(270)" title="Ouest">←O</button>
+  </div>
+</div>
+<div id="cdirright">
+  <div class="cdir-pair">
+    <button class="cdirb" id="cdirE" onclick="snapDir(90)"  title="Est">E→</button>
+    <button class="cdirb" id="cdirS" onclick="snapDir(180)" title="Sud">S↓</button>
+  </div>
+</div>
+
 <div id="cwarn" onclick="toggleCal()">⚠ Boussole non calibrée · tap ✕</div>
 <div id="calw">
   <span>Offset:</span>
@@ -624,7 +651,7 @@ const CATS = [
   {id:'beach', lb:'🏖 Plages',        cc:'#fcd34d'},
 ];
 const FOV = 75, FOV2 = FOV/2;
-const ALPHA = 0.85; // compass smoothing (higher = less lag)
+const ALPHA = 0.08; // compass smoothing (lower = smoother, less jitter)
 
 // ═══════════════════════════════════════════
 // STATE
@@ -648,7 +675,7 @@ let cRelTimer=null;
 const poiEls=new Map();
 const clustEls=new Map(); // clusters affichés
 const CLUSTER_PX=55;    // distance horiz. px pour fusionner
-const SMOOTH=0.25;       // lissage position (0=figé, 1=immédiat)
+const SMOOTH=0.10;       // lissage position (0=figé, 1=immédiat)
 
 // ═══════════════════════════════════════════
 // PERMISSIONS FLOW
@@ -954,12 +981,47 @@ function onOri(e){
   }
 }
 
+// ─── DIRECTION SNAP (flèches manuelles) ──────────────────────────────────
+let _manualLock = null; // direction verrouillée manuellement (null = libre)
+let _manualTimer = null;
+
+function snapDir(deg){
+  // Verrouille le cap sur la direction choisie
+  const dirs = ['cdirN','cdirW','cdirE','cdirS'];
+  dirs.forEach(id => document.getElementById(id)?.classList.remove('locked'));
+  const idMap = {0:'cdirN',90:'cdirE',180:'cdirS',270:'cdirW'};
+  if(idMap[deg]) document.getElementById(idMap[deg])?.classList.add('locked');
+
+  if(_manualLock === deg){
+    // Deuxième tap sur le même bouton → déverrouiller
+    _manualLock = null;
+    dirs.forEach(id => document.getElementById(id)?.classList.remove('locked'));
+    return;
+  }
+  _manualLock = deg;
+  S.hSm = deg; // force le cap immédiatement
+  S.hOff = 0;
+
+  // Auto-déverrouillage après 8 secondes si capteur présent
+  if(_manualTimer) clearTimeout(_manualTimer);
+  _manualTimer = setTimeout(()=>{
+    if(_manualLock !== null){
+      _manualLock = null;
+      dirs.forEach(id => document.getElementById(id)?.classList.remove('locked'));
+    }
+  }, 8000);
+}
+
 function updRaw(r){
   _lastOriTime=Date.now();
   S.hRaw=r;
+  // Si un verrouillage manuel est actif, ignorer le capteur
+  if(_manualLock !== null) return;
   if(S.hSm==null){S.hSm=r;return;}
   let d=r-S.hSm;
   if(d>180)d-=360; if(d<-180)d+=360;
+  // Dead-zone: ignorer les micro-variations < 0.4° pour éviter le tremblement
+  if(Math.abs(d)<0.4) return;
   S.hSm=(S.hSm+ALPHA*d+360)%360;
 }
 function getH(){return S.hSm==null?null:(S.hSm+S.hOff+360)%360;}
@@ -1049,12 +1111,12 @@ function applyFilter(){
     if(p.dist<dMin||p.dist>dMax) return false;
     return S.cat==='all'||p.type.cat===S.cat;
   });
-  // Max 25 POIs répartis en 5 tranches
-  const bw=(dMax-dMin)/5||1;
-  const buckets=[[],[],[],[],[]];
+  // Max 48 POIs répartis en 6 tranches
+  const bw=(dMax-dMin)/6||1;
+  const buckets=[[],[],[],[],[],[]];
   filtered.forEach(p=>{
-    const bi=Math.min(4,Math.floor((p.dist-dMin)/bw));
-    if(buckets[bi].length<5) buckets[bi].push(p);
+    const bi=Math.min(5,Math.floor((p.dist-dMin)/bw));
+    if(buckets[bi].length<8) buckets[bi].push(p);
   });
   S.pois=buckets.flat();
   poiEls.forEach(e=>e.remove()); poiEls.clear();
@@ -1104,15 +1166,21 @@ async function safeFetch(url, opts={}, timeoutMs=10000, label=''){
 // Source 1 : Overpass — nodes "place" + natural (très précis)
 async function fetchOverpassLight(lat,lng,radiusM){
   const r = Math.min(radiusM*1.5, 100000);
-  const q = `[out:json][timeout:25];(
+  const q = `[out:json][timeout:30];(
 node["place"~"^(city|town|village|hamlet|suburb|island|islet|locality)$"](around:${r},${lat},${lng});
-node["natural"~"^(peak|volcano|cape|bay|beach|cliff|wood)$"]["name"](around:${r},${lat},${lng});
+node["natural"~"^(peak|volcano|cape|bay|beach|cliff|wood|water|strait|headland|peninsula)$"]["name"](around:${r},${lat},${lng});
+way["natural"~"^(beach|cliff|bay|water|wood|coastline)$"]["name"](around:${r},${lat},${lng});
+relation["natural"~"^(bay|water|island)$"]["name"](around:${r},${lat},${lng});
 node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
+node["tourism"~"^(attraction|viewpoint|museum|castle|artwork)$"]["name"](around:${r},${lat},${lng});
+node["historic"~"^(castle|monument|memorial|ruins|archaeological_site|fort)$"]["name"](around:${r},${lat},${lng});
+node["waterway"~"^(river|canal)$"]["name"](around:${r},${lat},${lng});
+way["waterway"~"^(river|canal)$"]["name"](around:${r},${lat},${lng});
 way["natural"="wood"]["name"](around:${r},${lat},${lng});
 way["landuse"~"^(forest|wood)$"]["name"](around:${r},${lat},${lng});
 relation["natural"="wood"]["name"](around:${r},${lat},${lng});
 relation["landuse"~"^(forest|wood)$"]["name"](around:${r},${lat},${lng});
-);out center 600;`;
+);out center 800;`;
   const APIS = [
     'https://overpass-api.de/api/interpreter',
     'https://overpass.kumi.systems/api/interpreter',
@@ -1261,10 +1329,9 @@ function processPOIs(wikiItems, ovEls, ulat, ulng){
   applyFilter();
 }
 
-// Classifie via tags OSM (source Overpass)
 function classifyOSM(t,name){
   if(!t)return{emoji:'📍',label:'Lieu',cat:'all'};
-  const p=t.place,n=t.natural,m=t.man_made,lu=t.landuse,le=t.leisure,to=t.tourism;
+  const p=t.place,n=t.natural,m=t.man_made,lu=t.landuse,le=t.leisure,to=t.tourism,hi=t.historic,ww=t.waterway;
   const nm=(name||'').toLowerCase();
   // ── Priorité 1 : tags OSM stricts ───────────────────────────
   if(n==='wood'||lu==='forest'||lu==='wood')return{emoji:'🌲',label:'Forêt',cat:'wood'};
@@ -1276,6 +1343,13 @@ function classifyOSM(t,name){
   if(n==='strait')return{emoji:'〰️',label:'Détroit',cat:'coast'};
   if(n==='cliff'||n==='rock')return{emoji:'🪨',label:'Falaise',cat:'coast'};
   if(n==='beach'||le==='beach_resort'||to==='beach')return{emoji:'🏖',label:'Plage',cat:'beach'};
+  if(hi==='castle'||hi==='fort')return{emoji:'🏰',label:'Château / Fort',cat:'site'};
+  if(hi==='monument'||hi==='memorial'||hi==='ruins'||hi==='archaeological_site')return{emoji:'🗿',label:'Monument',cat:'site'};
+  if(to==='viewpoint')return{emoji:'🔭',label:'Point de vue',cat:'site'};
+  if(to==='museum')return{emoji:'🏛️',label:'Musée',cat:'site'};
+  if(to==='attraction'||to==='artwork')return{emoji:'🌟',label:'Attraction',cat:'site'};
+  if(ww==='river'||ww==='canal')return{emoji:'🏞️',label:'Cours d\'eau',cat:'coast'};
+  if(n==='water')return{emoji:'💧',label:'Plan d\'eau',cat:'coast'};
   // ── Priorité 2 : détection par nom (avant les tags place) ───
   const byName = classifyByName(name);
   if(byName) return byName;
