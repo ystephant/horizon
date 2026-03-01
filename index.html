@@ -8,7 +8,7 @@
   <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
   <meta name="apple-mobile-web-app-title" content="Mon Horizon"/>
   <meta name="theme-color" content="#e8f2f7"/>
-  <link id="pwa-manifest" rel="manifest"/>
+  <link rel="manifest" href="manifest.json"/>
   <title>Mon Horizon</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -2110,69 +2110,33 @@ document.getElementById('hdg').addEventListener('touchend',()=>clearTimeout(_hdg
 // Verrou orientation portrait si supporté
 try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}
 
-// ── PWA : manifest inline + service worker ────────────────────────────────
-(function(){
-  // Manifest
-  const manifest = {
-    name: 'Mon Horizon',
-    short_name: 'Horizon',
-    description: 'Réalité augmentée — ce qui est devant vous',
-    start_url: '.',
-    display: 'fullscreen',
-    orientation: 'portrait',
-    background_color: '#eef5f9',
-    theme_color: '#3a7fa8',
-    lang: 'fr',
-    icons: [
-      {src:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><circle cx="96" cy="96" r="96" fill="%233a7fa8"/><text y="128" x="96" text-anchor="middle" font-size="110" font-family="serif">🧭</text></svg>',sizes:'192x192',type:'image/svg+xml'},
-      {src:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><circle cx="256" cy="256" r="256" fill="%233a7fa8"/><text y="340" x="256" text-anchor="middle" font-size="290" font-family="serif">🧭</text></svg>',sizes:'512x512',type:'image/svg+xml'}
-    ]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
-  document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
+// ── Service Worker + bouton installation ─────────────────────────────────
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('./sw.js')
+    .catch(e => console.warn('[SW]', e));
+}
+let _deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  _deferredPrompt = e;
+  setTimeout(() => {
+    if(!_deferredPrompt) return;
+    const btn = document.createElement('button');
+    btn.className = 'hbtn';
+    btn.title = "Installer l'app sur l'écran d'accueil";
+    btn.textContent = '📲';
+    btn.style.cssText = 'background:rgba(58,127,168,.2);border:1px solid var(--sea)';
+    btn.onclick = async () => {
+      _deferredPrompt.prompt();
+      const { outcome } = await _deferredPrompt.userChoice;
+      if(outcome === 'accepted') btn.remove();
+      _deferredPrompt = null;
+    };
+    document.getElementById('hud').insertBefore(btn, document.getElementById('hud').firstChild);
+  }, 2000);
+});
+window.addEventListener('appinstalled', () => { _deferredPrompt = null; });
 
-  // Service Worker — cache offline
-  if('serviceWorker' in navigator){
-    const swCode = `
-const CACHE='horizon-v1';
-const URLS=[self.registration.scope];
-self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS))); self.skipWaiting(); });
-self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); self.clients.claim(); });
-self.addEventListener('fetch',e=>{ e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))); });
-`;
-    const swBlob = new Blob([swCode], {type:'application/javascript'});
-    const swUrl  = URL.createObjectURL(swBlob);
-    navigator.serviceWorker.register(swUrl, {scope: window.location.pathname || '/'})
-      .then(()=>console.log('[PWA] SW registered'))
-      .catch(e=>console.warn('[PWA] SW error:', e));
-  }
-
-  // Bannière d'installation personnalisée (Android Chrome)
-  let _deferredPrompt = null;
-  window.addEventListener('beforeinstallprompt', e=>{
-    e.preventDefault();
-    _deferredPrompt = e;
-    // Afficher bouton d'install dans le HUD après 3s si pas encore installé
-    setTimeout(()=>{
-      if(!_deferredPrompt) return;
-      const btn = document.createElement('button');
-      btn.className = 'hbtn';
-      btn.title = 'Installer l'app';
-      btn.textContent = '📲';
-      btn.style.background = 'rgba(58,127,168,.2)';
-      btn.style.border = '1px solid var(--sea)';
-      btn.onclick = async ()=>{
-        if(!_deferredPrompt) return;
-        _deferredPrompt.prompt();
-        const {outcome} = await _deferredPrompt.userChoice;
-        if(outcome==='accepted') btn.remove();
-        _deferredPrompt = null;
-      };
-      document.getElementById('hud').insertBefore(btn, document.getElementById('hud').firstChild);
-    }, 3000);
-  });
-  window.addEventListener('appinstalled', ()=>{ _deferredPrompt=null; });
-})();
 
 // ── Détection mode paysage ────────────────────────────────────────────────
 function _isLandscape(){
