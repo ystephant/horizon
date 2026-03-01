@@ -185,7 +185,7 @@ border-radius:0
 #cft{font-family:'Nunito',sans-serif;font-size:9px;color:var(--mu);margin-top:1px}
 
 /* ── FILTERS ─────────────────────────────────────────────── */
-#fw{position:fixed;bottom:50px;left:0;right:0;z-index:21;display:flex;flex-direction:column;gap:0;pointer-events:auto;background:#f8f4ea;border-top:1px solid rgba(91,158,201,.18);border-bottom:1px solid rgba(91,158,201,.18);box-shadow:0 -1px 8px rgba(58,127,168,.08)}
+#fw{position:fixed;bottom:var(--hud-h,50px);left:0;right:0;z-index:21;display:flex;flex-direction:column;gap:0;pointer-events:auto;background:#f8f4ea;border-top:1px solid rgba(91,158,201,.18);border-bottom:1px solid rgba(91,158,201,.18);box-shadow:0 -1px 8px rgba(58,127,168,.08)}
 .frow{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:3px 12px}
 .frow::-webkit-scrollbar{display:none}
 #dfrow{background:#f8f4ea;padding:5px 0;border-top:1px solid rgba(91,158,201,.15)}
@@ -209,8 +209,8 @@ border-radius:0
 #dbgpanel{position:fixed;bottom:110px;left:10px;right:10px;z-index:50;background:rgba(0,0,0,.75);color:#0f0;font-family:monospace;font-size:11px;padding:8px 12px;border-radius:12px;display:none;line-height:1.7;pointer-events:none}
 
 /* ── DETAIL PANEL ────────────────────────────────────────── */
-#det{position:fixed;bottom:106px;left:12px;right:12px;z-index:30;background:rgba(250,246,238,.97);border:1.5px solid var(--bord);border-radius:18px;padding:16px 17px;backdrop-filter:blur(20px);display:none;pointer-events:auto;max-height:68vh;overflow-y:auto;box-shadow:var(--shadow-md)}
-#det.on{display:block}
+#det{position:fixed;bottom:0;left:0;right:0;z-index:30;background:rgba(250,246,238,.97);border:1.5px solid var(--bord);border-radius:22px 22px 0 0;padding:18px 17px;padding-bottom:calc(var(--hud-h,50px) + var(--fw-h,90px) + 8px);backdrop-filter:blur(20px);display:none;pointer-events:auto;max-height:80vh;overflow-y:auto;box-shadow:0 -4px 24px rgba(58,127,168,.2);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+#det.on{display:block;transform:translateY(0)}
 #detx{position:absolute;top:11px;right:13px;background:none;border:none;color:var(--mu);font-size:17px;cursor:pointer;font-family:'Nunito',sans-serif;font-weight:400;line-height:1}
 #deti{font-size:26px;margin-bottom:5px}
 #detn{font-family:'Lora',serif;font-size:19px;font-weight:700;color:var(--tx);margin-bottom:3px;line-height:1.2}
@@ -530,7 +530,7 @@ letter-spacing:-.01em
   </div>
   <div id="pcnt">—</div>
   <button class="hbtn g" onclick="openMap()">📍</button>
-  <button class="hbtn" id="srchbtn" onclick="openStats()" title="Stats POIs">🔍</button>
+  <button class="hbtn" id="srchbtn" onclick="openStats()" title="Stats POIs">Rechercher</button>
   <button class="hbtn" onclick="doRefresh()">↻</button>
 </div>
 
@@ -794,6 +794,17 @@ function initApp(){
   buildFilters();
   renderLoop();
 
+  // ── Ancrage dynamique #fw et #det au-dessus du HUD ─────────────────
+  function updateLayout(){
+    const hudH = document.getElementById('hud').offsetHeight;
+    const fwH  = document.getElementById('fw').offsetHeight;
+    document.documentElement.style.setProperty('--hud-h', hudH+'px');
+    document.documentElement.style.setProperty('--fw-h',  fwH+'px');
+  }
+  updateLayout();
+  new ResizeObserver(updateLayout).observe(document.getElementById('hud'));
+  new ResizeObserver(updateLayout).observe(document.getElementById('fw'));
+
   // Popup GPS si la position n'est pas disponible après 3 secondes
   setTimeout(()=>{
     if(!S.gpsOk && !S.gpsMan){
@@ -1042,7 +1053,7 @@ function chOff(d){
 // ═══════════════════════════════════════════
 const MINS = [
   {l:'0',v:0},{l:'500m',v:500},{l:'1km',v:1000},
-  {l:'2km',v:2000},{l:'5km',v:5000},{l:'10km',v:10000},{l:'25km',v:25000}
+  {l:'2km',v:2000},{l:'5km',v:5000},{l:'10km',v:10000},{l:'25km',v:25000},{l:'75km',v:75000}
 ];
 function buildFilters(){
   // Categories
@@ -1141,7 +1152,7 @@ function classifyByName(name){
   if(/\bdétroit\b/.test(n))                                      return{emoji:'〰️',label:'Détroit',cat:'coast'};
   if(/\b(falaise|cliffs?)\b/.test(n))                            return{emoji:'🪨',label:'Falaise',cat:'coast'};
   if(/\b(forêt|bois|woods?|forest)\b/.test(n))                    return{emoji:'🌲',label:'Forêt',cat:'wood'};
-  if(/\b(plage|beach|spiaggia)/.test(n))                          return{emoji:'🏖',label:'Plage',cat:'beach'};
+  if(/\b(plage|beach|spiaggia|grève|greve)/.test(n))                  return{emoji:'🏖',label:'Plage',cat:'beach'};
   if(/\b(lieu-dit|lieudit|hameau|écart|lieu dit)/.test(n))       return{emoji:'📌',label:'Lieu-dit',cat:'site'};
   return null; // inconnu → sera classifié comme ville par défaut
 }
@@ -1170,6 +1181,8 @@ async function fetchOverpassLight(lat,lng,radiusM){
 node["place"~"^(city|town|village|hamlet|suburb|island|islet|locality)$"](around:${r},${lat},${lng});
 node["natural"~"^(peak|volcano|cape|bay|beach|cliff|wood|water|strait|headland|peninsula)$"]["name"](around:${r},${lat},${lng});
 way["natural"~"^(beach|cliff|bay|water|wood|coastline)$"]["name"](around:${r},${lat},${lng});
+node["leisure"~"^(beach_resort|slipway)$"]["name"](around:${r},${lat},${lng});
+way["leisure"="beach_resort"]["name"](around:${r},${lat},${lng});
 relation["natural"~"^(bay|water|island)$"]["name"](around:${r},${lat},${lng});
 node["man_made"="lighthouse"]["name"](around:${r},${lat},${lng});
 node["tourism"~"^(attraction|viewpoint|museum|castle|artwork)$"]["name"](around:${r},${lat},${lng});
@@ -1342,7 +1355,7 @@ function classifyOSM(t,name){
   if(n==='bay'||n==='gulf')return{emoji:'🌊',label:'Baie',cat:'coast'};
   if(n==='strait')return{emoji:'〰️',label:'Détroit',cat:'coast'};
   if(n==='cliff'||n==='rock')return{emoji:'🪨',label:'Falaise',cat:'coast'};
-  if(n==='beach'||le==='beach_resort'||to==='beach')return{emoji:'🏖',label:'Plage',cat:'beach'};
+  if(n==='beach'||le==='beach_resort'||to==='beach'||le==='slipway')return{emoji:'🏖',label:'Plage',cat:'beach'};
   if(hi==='castle'||hi==='fort')return{emoji:'🏰',label:'Château / Fort',cat:'site'};
   if(hi==='monument'||hi==='memorial'||hi==='ruins'||hi==='archaeological_site')return{emoji:'🗿',label:'Monument',cat:'site'};
   if(to==='viewpoint')return{emoji:'🔭',label:'Point de vue',cat:'site'};
@@ -1677,9 +1690,16 @@ function openDet(p){
   document.getElementById('infoimgw').classList.remove('on');
   document.getElementById('infoext').textContent='';
   document.getElementById('infowlink').href='#';
-  document.getElementById('det').classList.add('on');
+  // Slide-up depuis le bas
+  const det=document.getElementById('det');
+  det.style.display='block';
+  requestAnimationFrame(()=>{ det.classList.add('on'); });
 }
-function closeDet(){document.getElementById('det').classList.remove('on');}
+function closeDet(){
+  const det=document.getElementById('det');
+  det.classList.remove('on');
+  setTimeout(()=>{ if(!det.classList.contains('on')) det.style.display='none'; }, 320);
+}
 function goGMaps(){
   const p=S.detPOI;if(!p)return;
   window.open(`https://www.google.com/maps/dir/?api=1&origin=${S.lat},${S.lng}&destination=${p.lat},${p.lng}&travelmode=driving`,'_blank');
