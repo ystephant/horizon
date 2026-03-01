@@ -1113,7 +1113,6 @@ let _manualTimer = null;
 
 // Buffer d'initialisation (5 lectures pour démarrer proprement)
 const _HEAD_BUF = [];
-const _HEAD_N   = 5;
 
 function snapDir(deg){
   const dirs = ['cdirN','cdirW','cdirE','cdirS'];
@@ -1149,32 +1148,24 @@ function updRaw(r){
   S.hRaw = r;
   if(_manualLock !== null) return;
 
-  // ── Init : 5 lectures pour un démarrage stable ───────────────────────
-  if(S.hSm == null){
-    _HEAD_BUF.push(r);
-    if(_HEAD_BUF.length < _HEAD_N) return;
-    S.hSm = circMean(_HEAD_BUF);
-    return;
-  }
+  // Mode Figée : cap gelé, on n'accepte aucune mise à jour
+  if(S.alpha === 0) return;
 
-  // Delta angulaire (chemin court)
-  let d = r - S.hSm;
-  if(d > 180) d -= 360; if(d < -180) d += 360;
+  // Taille du buffer glissant selon la sensibilité choisie
+  //   Normale(0.12)→5  Réactive(0.28)→3  Vive(0.55)→2  Directe(1)→1
+  //   Douce(0.05)→12   (≈250ms à 20Hz pour Normale)
+  const N = S.alpha >= 1 ? 1 : Math.max(1, Math.round(0.6 / S.alpha));
 
-  // Dead-zone micro-tremblement (<0.5°)
-  if(Math.abs(d) < 0.5) return;
+  _HEAD_BUF.push(r);
+  if(_HEAD_BUF.length > Math.max(N, 3)) _HEAD_BUF.shift(); // garder au moins 3
 
-  // ── Lissage adaptatif ─────────────────────────────────────────────────
-  // Pas de gate outlier : le gate bloquait les vraies rotations rapides.
-  // Le boost adaptatif suffit : rotation lente → alpha_base, rotation
-  // rapide → alpha proche de 1 → convergence quasi-immédiate.
-  //   seuil bas  : 5°/event  → commence à booster
-  //   seuil haut : 30°/event → alpha plafonne à 1.0 (snap direct)
-  const speed = Math.abs(d);
-  const boost = Math.min(Math.max((speed - 5) / 25, 0), 1);
-  const alpha = S.alpha === 0 ? 0 : Math.min(S.alpha + (1 - S.alpha) * boost, 1.0);
+  // Pas encore assez de lectures pour démarrer → attendre
+  if(_HEAD_BUF.length < Math.min(N, 3)) return;
 
-  S.hSm = (S.hSm + alpha * d + 360) % 360;
+  // Moyenne circulaire des N dernières lectures
+  // Propriété clé : un seul glitch dans N readings ne pèse que 1/N
+  // → impossible de snap instantanément sur un parasite capteur
+  S.hSm = circMean(_HEAD_BUF.slice(-N));
 }
 function getH(){return S.hSm==null?null:(S.hSm+S.hOff+360)%360;}
 function hideCWarn(){
