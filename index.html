@@ -4,7 +4,11 @@
   <meta charset="UTF-8"/>
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no"/>
   <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="default"/>
+  <meta name="apple-mobile-web-app-title" content="Mon Horizon"/>
   <meta name="theme-color" content="#e8f2f7"/>
+  <link id="pwa-manifest" rel="manifest"/>
   <title>Mon Horizon</title>
   <link href="https://fonts.googleapis.com/css2?family=Lora:ital,wght@0,400;0,600;0,700;1,400&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet"/>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
@@ -517,14 +521,14 @@ letter-spacing:-.01em
 
 <!-- NO POI MESSAGE -->
 <div id="nopoi">
-  <span class="nopoi-ico">🔭</span>
-  <p>Aucun point d'intérêt trouvé.<br>Merci de relancer la recherche.</p>
+  <span class="nopoi-ico" id="nopoi-ico">🔭</span>
+  <p id="nopoi-msg">Aucun point d'intérêt trouvé.<br>Merci de relancer la recherche.</p>
 </div>
 
 <!-- COMPASS -->
 <div id="cbar"><div id="ctrack"><div id="cctr"></div></div></div>
 <div id="hdg">---° N</div>
-<button id="sensibtn" onclick="toggleSens()">🧭 Directe</button>
+<button id="sensibtn" onclick="toggleSens()">🧭 Normale</button>
 <button id="backbtn" onclick="goMenu()">← Menu</button>
 
 <!-- SENSITIVITY PANEL -->
@@ -533,10 +537,10 @@ letter-spacing:-.01em
   <!-- niveaux : id, label, alpha de base, nb segments (sur 5) -->
   <div class="slvl" data-alpha="0"    data-bars="0" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Figée</span><span class="slvl-bar"><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
   <div class="slvl" data-alpha="0.05" data-bars="1" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Douce</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
-  <div class="slvl" data-alpha="0.12" data-bars="2" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Normale</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl on" data-alpha="0.12" data-bars="2" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Normale</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
   <div class="slvl" data-alpha="0.28" data-bars="3" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Réactive</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
   <div class="slvl" data-alpha="0.55" data-bars="4" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Vive</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span></span></div>
-  <div class="slvl on" data-alpha="1"    data-bars="5" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Directe</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span></span></div>
+  <div class="slvl" data-alpha="1"    data-bars="5" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Directe</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span></span></div>
 </div>
 
 <!-- DIRECTION ARROWS (left side: N & W — right side: E & S) -->
@@ -727,7 +731,7 @@ const S = {
   cat:'all',
   detPOI:null,
   centerPOI:null,          // POI closest to crosshair center
-  alpha:1.0,              // sensibilité boussole — défaut: Directe (user-configurable)
+  alpha:0.12,             // sensibilité boussole — défaut: Normale (user-configurable)
 };
 let lmap=null, lmk=null, pLat=null, pLng=null;
 let cRelTimer=null;
@@ -1325,10 +1329,30 @@ function applyFilter(){
   clustEls.forEach(e=>e.remove()); clustEls.clear();
   const rng=dMin>0?`${fmt(dMin)} – ${fmt(dMax)}`:`0 – ${fmt(dMax)}`;
   document.getElementById('pcnt').textContent=`${S.pois.length} pts · ${rng}`;
-  // Message aucun POI
+  // Message aucun POI — contextuel selon la cause
   const noPoiEl=document.getElementById('nopoi');
-  if(S.pois.length===0 && S.gpsOk) noPoiEl.classList.add('on');
-  else noPoiEl.classList.remove('on');
+  const noPoiMsg=document.getElementById('nopoi-msg');
+  const noPoiIco=document.getElementById('nopoi-ico');
+  if(S.pois.length===0 && S.gpsOk){
+    const hasData = S.allPOIs.length > 0; // données chargées mais filtrées ?
+    if(hasData && S.cat!=='all'){
+      // Filtre catégorie actif sans résultat
+      const catLabel = CATS.find(c=>c.id===S.cat)?.lb || S.cat;
+      noPoiIco.textContent='🔍';
+      noPoiMsg.innerHTML=`Aucun <b>${catLabel}</b> dans cette zone.<br><span style="font-size:11px;color:var(--txlight)">Essayez d'élargir la distance ou de changer de filtre.</span>`;
+    } else if(hasData && (S.minD>0||S.maxD<100000)){
+      // Filtre distance actif sans résultat
+      noPoiIco.textContent='📏';
+      noPoiMsg.innerHTML=`Aucun POI entre ${fmt(S.minD)} et ${fmt(S.maxD)}.<br><span style="font-size:11px;color:var(--txlight)">Essayez d'élargir la plage de distance.</span>`;
+    } else {
+      // Vraiment aucune donnée — relancer la recherche
+      noPoiIco.textContent='🔭';
+      noPoiMsg.innerHTML=`Aucun point d'intérêt trouvé.<br><span style="font-size:11px;color:var(--txlight)">Appuyez sur <b>Rechercher</b> pour relancer.</span>`;
+    }
+    noPoiEl.classList.add('on');
+  } else {
+    noPoiEl.classList.remove('on');
+  }
 }
 
 // ═══════════════════════════════════════════
@@ -1491,7 +1515,10 @@ async function fetchPOIs(){
   const total = wikiItems.length + ovItems.length + nomItems.length;
   if(!total){
     showDbg('❌ Aucune source disponible – réseau ou APIs inaccessibles', 8000);
-    document.getElementById('nopoi').classList.add('on');
+    const _nEl=document.getElementById('nopoi');
+    document.getElementById('nopoi-ico').textContent='📡';
+    document.getElementById('nopoi-msg').innerHTML='Sources inaccessibles.<br><span style="font-size:11px;color:var(--txlight)">Vérifiez votre connexion puis appuyez sur <b>Rechercher</b>.</span>';
+    _nEl.classList.add('on');
     return;
   }
   showDbg(`✓ OSM:${ovItems.length} Wiki:${wikiItems.length} Nom:${nomItems.length}`);
@@ -2082,6 +2109,70 @@ document.getElementById('hdg').addEventListener('touchend',()=>clearTimeout(_hdg
 
 // Verrou orientation portrait si supporté
 try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}
+
+// ── PWA : manifest inline + service worker ────────────────────────────────
+(function(){
+  // Manifest
+  const manifest = {
+    name: 'Mon Horizon',
+    short_name: 'Horizon',
+    description: 'Réalité augmentée — ce qui est devant vous',
+    start_url: '.',
+    display: 'fullscreen',
+    orientation: 'portrait',
+    background_color: '#eef5f9',
+    theme_color: '#3a7fa8',
+    lang: 'fr',
+    icons: [
+      {src:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192"><circle cx="96" cy="96" r="96" fill="%233a7fa8"/><text y="128" x="96" text-anchor="middle" font-size="110" font-family="serif">🧭</text></svg>',sizes:'192x192',type:'image/svg+xml'},
+      {src:'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><circle cx="256" cy="256" r="256" fill="%233a7fa8"/><text y="340" x="256" text-anchor="middle" font-size="290" font-family="serif">🧭</text></svg>',sizes:'512x512',type:'image/svg+xml'}
+    ]
+  };
+  const blob = new Blob([JSON.stringify(manifest)], {type:'application/manifest+json'});
+  document.getElementById('pwa-manifest').href = URL.createObjectURL(blob);
+
+  // Service Worker — cache offline
+  if('serviceWorker' in navigator){
+    const swCode = `
+const CACHE='horizon-v1';
+const URLS=[self.registration.scope];
+self.addEventListener('install',e=>{ e.waitUntil(caches.open(CACHE).then(c=>c.addAll(URLS))); self.skipWaiting(); });
+self.addEventListener('activate',e=>{ e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==CACHE).map(k=>caches.delete(k))))); self.clients.claim(); });
+self.addEventListener('fetch',e=>{ e.respondWith(fetch(e.request).catch(()=>caches.match(e.request))); });
+`;
+    const swBlob = new Blob([swCode], {type:'application/javascript'});
+    const swUrl  = URL.createObjectURL(swBlob);
+    navigator.serviceWorker.register(swUrl, {scope: window.location.pathname || '/'})
+      .then(()=>console.log('[PWA] SW registered'))
+      .catch(e=>console.warn('[PWA] SW error:', e));
+  }
+
+  // Bannière d'installation personnalisée (Android Chrome)
+  let _deferredPrompt = null;
+  window.addEventListener('beforeinstallprompt', e=>{
+    e.preventDefault();
+    _deferredPrompt = e;
+    // Afficher bouton d'install dans le HUD après 3s si pas encore installé
+    setTimeout(()=>{
+      if(!_deferredPrompt) return;
+      const btn = document.createElement('button');
+      btn.className = 'hbtn';
+      btn.title = 'Installer l'app';
+      btn.textContent = '📲';
+      btn.style.background = 'rgba(58,127,168,.2)';
+      btn.style.border = '1px solid var(--sea)';
+      btn.onclick = async ()=>{
+        if(!_deferredPrompt) return;
+        _deferredPrompt.prompt();
+        const {outcome} = await _deferredPrompt.userChoice;
+        if(outcome==='accepted') btn.remove();
+        _deferredPrompt = null;
+      };
+      document.getElementById('hud').insertBefore(btn, document.getElementById('hud').firstChild);
+    }, 3000);
+  });
+  window.addEventListener('appinstalled', ()=>{ _deferredPrompt=null; });
+})();
 
 // ── Détection mode paysage ────────────────────────────────────────────────
 function _isLandscape(){
