@@ -971,19 +971,15 @@ function showGPSHelp(c){
 const SRC_PRIORITY = {ios:3, abs:2, rel:1, null:0};
 
 // ── BOUSSOLE ─────────────────────────────────────────────────────────────
-// Règle de base : on N'utilise PAS beta/gamma pour corriger le cap.
-// La formule "tilt compensation" est conçue pour téléphone à plat.
-// En mode AR vertical (beta≈90°), elle crée exactement le bug nord↔sud.
-//
-// Solution :
-//   iOS  → webkitCompassHeading  (déjà corrigé par le système)
-//   Android absolute → (360 - alpha) % 360  (formule directe, fiable)
-//
-// Le seul ajustement nécessaire : l'orientation de l'écran (portrait/paysage).
+// iOS  → webkitCompassHeading : déjà compensé par le système, on l'utilise tel quel.
+// Android → deviceorientationabsolute : on applique la formule officielle W3C
+//           qui projette l'axe Y du téléphone sur le plan horizontal.
+//           Contrairement à (360-alpha), elle tient compte de l'inclinaison
+//           latérale (gamma) et du tangage (beta), ce qui évite les erreurs
+//           de 10-20° lorsque le téléphone n'est pas tenu parfaitement vertical.
 // ─────────────────────────────────────────────────────────────────────────
 
 function getScreenAngle(){
-  // Retourne l'angle de rotation de l'écran en degrés (0 = portrait)
   try{
     if(screen.orientation && typeof screen.orientation.angle === 'number')
       return screen.orientation.angle;
@@ -992,49 +988,69 @@ function getScreenAngle(){
   return 0;
 }
 
-function alphaToHeading(alpha){
-  // Formule Android standard : boussole = 360 - alpha (mesure inverse)
-  // + compensation orientation écran (0° en portrait, 90° en paysage)
+// Formule W3C officielle — valide pour toute inclinaison du téléphone
+// alpha = rotation autour Z (boussole), beta = tangage, gamma = roulis
+function tiltCompensatedHeading(alpha, beta, gamma){
+  if(alpha == null) return null;
+  const toRad = Math.PI / 180;
+  const a = alpha * toRad;
+  // Valeurs par défaut réalistes si le capteur ne les fournit pas
+  const b = (beta  ?? 90) * toRad;   // 90° = téléphone vertical (mode AR)
+  const g = (gamma ?? 0)  * toRad;   //  0° = téléphone non incliné latéralement
+
+  const cA = Math.cos(a), sA = Math.sin(a);
+  const cB = Math.cos(b), sB = Math.sin(b);
+  const cG = Math.cos(g), sG = Math.sin(g);
+
+  // Composantes horizontales de l'axe Y du téléphone dans le repère monde
+  const Vx = - cA * sG - sA * sB * cG;
+  const Vy = - sA * sG + cA * sB * cG;
+
+  let h = Math.atan2(Vx, Vy) * 180 / Math.PI;
+  if(h < 0) h += 360;
+
+  // Compensation orientation écran (portrait = 0°, paysage = 90°)
+  // L'app force le portrait, mais on garde la correction pour robustesse
   const sa = getScreenAngle();
-  return (360 - alpha + sa + 360) % 360;
+  return (h + sa + 360) % 360;
 }
 
 function onOriAbs(e){
   // deviceorientationabsolute : nord magnétique garanti
   if(e.alpha == null) return;
   if(SRC_PRIORITY['abs'] < (SRC_PRIORITY[S.cSrc]||0)) return;
-  const h = alphaToHeading(e.alpha);
+  const h = tiltCompensatedHeading(e.alpha, e.beta, e.gamma);
   updRaw(h);
   S.cSrc = 'abs';
-  S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h, sa:getScreenAngle()};
+  S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h};
   hideCWarn();
 }
 
 function onOri(e){
-  // ── iOS : webkitCompassHeading — source la plus fiable ───────────────
+  // ── iOS : webkitCompassHeading — déjà compensé par le système ──────────
   if(e.webkitCompassHeading != null && e.webkitCompassHeading >= 0){
     updRaw(e.webkitCompassHeading);
     S.cSrc = 'ios';
     S.dbgRaw = {alpha:e.webkitCompassHeading, beta:e.beta, gamma:e.gamma,
-                h:e.webkitCompassHeading, sa:0};
+                h:e.webkitCompassHeading};
     hideCWarn();
     return;
   }
-  // ── Android absolute dans onOri (fallback si onOriAbs non déclenché) ─
+  // ── Android absolute dans onOri (fallback si onOriAbs non déclenché) ──
   if(e.absolute === true && e.alpha != null){
     if(SRC_PRIORITY['abs'] >= (SRC_PRIORITY[S.cSrc]||0)){
-      const h = alphaToHeading(e.alpha);
+      const h = tiltCompensatedHeading(e.alpha, e.beta, e.gamma);
       updRaw(h);
       S.cSrc = 'abs';
-      S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h, sa:getScreenAngle()};
+      S.dbgRaw = {alpha:e.alpha, beta:e.beta, gamma:e.gamma, h};
       hideCWarn();
     }
     return;
   }
-  // ── Fallback relatif (pas de nord absolu) ────────────────────────────
+  // ── Fallback relatif (pas de nord absolu) ─────────────────────────────
   if(S.cSrc === 'abs' || S.cSrc === 'ios') return;
   if(e.alpha != null){
-    updRaw(alphaToHeading(e.alpha));
+    updRaw(tiltCompensatedHeading(e.alpha, e.beta, e.gamma));
     if(S.cSrc !== 'rel'){
       S.cSrc = 'rel';
       if(!cRelTimer) cRelTimer = setTimeout(()=>{
@@ -1375,22 +1391,16 @@ async function fetchPOIs(){
   if(!S.lat) return;
   showDbg('🔍 Recherche POIs…', 60000);
   document.getElementById('ldr').classList.add('on');
-  document.getElementById('nopoi').classList.remove('on'); // cacher message précédent
+  document.getElementById('nopoi').classList.remove('on');
   const lat=S.lat, lng=S.lng;
-  // Utiliser exactement la plage sélectionnée — pas de sur-requête
   const radiusM = Math.min(150000, S.maxD);
 
-  // Lancer Overpass + Wikipedia en parallèle
-  const [ovItems, wikiItems] = await Promise.all([
+  // ── Toutes les sources en parallèle ─────────────────────────────────────
+  const [ovItems, wikiItems, nomItems] = await Promise.all([
     fetchOverpassLight(lat, lng, radiusM),
-    fetchWikipedia(lat, lng, radiusM)
+    fetchWikipedia(lat, lng, radiusM),
+    fetchNominatim(lat, lng, radiusM),
   ]);
-
-  // Fallback Nominatim si les deux sources principales sont vides
-  let nomItems = [];
-  if(!ovItems.length && !wikiItems.length){
-    nomItems = await fetchNominatim(lat, lng, radiusM);
-  }
 
   document.getElementById('ldr').classList.remove('on');
 
@@ -1408,7 +1418,7 @@ async function fetchPOIs(){
 function processPOIs(wikiItems, ovEls, ulat, ulng){
   const seen=new Set(), res=[];
 
-  // Traiter les données Overpass (ground truth : tags OSM précis)
+  // Traiter les données Overpass + Nominatim (tags OSM)
   for(const el of ovEls){
     const eLat=el.lat??el.center?.lat;
     const eLng=el.lon??el.center?.lon;
@@ -1423,7 +1433,7 @@ function processPOIs(wikiItems, ovEls, ulat, ulng){
     res.push({name,lat:eLat,lng:eLng,dist,bearing:brg(ulat,ulng,eLat,eLng),type:classifyOSM(el.tags,name)});
   }
 
-  // Compléter avec Wikipédia (lieux non déjà présents via Overpass)
+  // Compléter avec Wikipédia
   for(const w of wikiItems){
     const key=w.name.toLowerCase().trim();
     if(seen.has(key)) continue;
@@ -1604,7 +1614,7 @@ function renderLoop(){
         const {alpha,beta,gamma,h:dh}=S.dbgRaw;
         const near=S.pois.length?S.pois[0]:null;
         document.getElementById('dbgpanel').innerHTML=
-          `α=${alpha!=null?alpha.toFixed(1):'?'} β=${beta!=null?beta.toFixed(1):'?'} γ=${gamma!=null?gamma.toFixed(1):'?'}<br>`+
+          `α=${alpha!=null?alpha.toFixed(1):'?'} β=${beta!=null?beta.toFixed(1):'?'} γ=${gamma!=null?gamma.toFixed(1):'?'} (formule W3C)<br>`+
           `Cap: ${hi}° (src:${S.cSrc||'?'}) | Écran:${getScreenAngle()}°<br>`+
           (near?`POI:${near.name} brg=${Math.round(near.bearing)}° df=${Math.round(ndeg(near.bearing-hi))}°`:'');
       }
