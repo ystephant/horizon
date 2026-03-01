@@ -1111,10 +1111,9 @@ function onOri(e){
 let _manualLock = null; // direction verrouillée manuellement (null = libre)
 let _manualTimer = null;
 
-// Rolling buffer anti-outlier (remplace _initBuf)
-const _HEAD_BUF = [];   // dernières N lectures validées
-const _HEAD_N   = 5;    // taille du buffer (≈250ms à 20Hz)
-let   _outlierCnt = 0;  // lectures consécutives déviantes
+// Buffer d'initialisation (5 lectures pour démarrer proprement)
+const _HEAD_BUF = [];
+const _HEAD_N   = 5;
 
 function snapDir(deg){
   const dirs = ['cdirN','cdirW','cdirE','cdirS'];
@@ -1150,7 +1149,7 @@ function updRaw(r){
   S.hRaw = r;
   if(_manualLock !== null) return;
 
-  // ── Phase d'initialisation : remplir le buffer d'abord ──────────────
+  // ── Init : 5 lectures pour un démarrage stable ───────────────────────
   if(S.hSm == null){
     _HEAD_BUF.push(r);
     if(_HEAD_BUF.length < _HEAD_N) return;
@@ -1158,38 +1157,24 @@ function updRaw(r){
     return;
   }
 
-  // Différence angulaire par rapport au cap actuel
+  // Delta angulaire (chemin court)
   let d = r - S.hSm;
   if(d > 180) d -= 360; if(d < -180) d += 360;
 
-  // Dead-zone micro-tremblement
-  if(Math.abs(d) < 0.4) return;
+  // Dead-zone micro-tremblement (<0.5°)
+  if(Math.abs(d) < 0.5) return;
 
-  // ── Rejet outlier : si saut > 45°, attendre 2 confirmations consécutives ──
-  // Évite que UN seul event aberrant (sensor reset, interférence) snap le cap.
-  if(Math.abs(d) > 45){
-    _outlierCnt++;
-    if(_outlierCnt < 2) return; // pas encore confirmé → ignorer
-  } else {
-    _outlierCnt = 0;
-  }
-
-  // Mettre à jour le buffer rolling (lectures validées)
-  _HEAD_BUF.push(r);
-  if(_HEAD_BUF.length > _HEAD_N) _HEAD_BUF.shift();
-
-  // ── Lissage adaptatif ────────────────────────────────────────────────
+  // ── Lissage adaptatif ─────────────────────────────────────────────────
+  // Pas de gate outlier : le gate bloquait les vraies rotations rapides.
+  // Le boost adaptatif suffit : rotation lente → alpha_base, rotation
+  // rapide → alpha proche de 1 → convergence quasi-immédiate.
+  //   seuil bas  : 5°/event  → commence à booster
+  //   seuil haut : 30°/event → alpha plafonne à 1.0 (snap direct)
   const speed = Math.abs(d);
-  const boost = Math.min(Math.max((speed - 4) / 20, 0), 1);
-  const alpha = S.alpha === 0 ? 0 : Math.min(S.alpha + (1 - S.alpha) * boost * 0.85, 1);
+  const boost = Math.min(Math.max((speed - 5) / 25, 0), 1);
+  const alpha = S.alpha === 0 ? 0 : Math.min(S.alpha + (1 - S.alpha) * boost, 1.0);
 
-  if(alpha >= 0.9){
-    // Mode Directe : moyenne circulaire des 5 dernières lectures validées
-    // → lag max ≈ 250ms mais immunisé contre les outliers ponctuels
-    S.hSm = circMean(_HEAD_BUF);
-  } else {
-    S.hSm = (S.hSm + alpha * d + 360) % 360;
-  }
+  S.hSm = (S.hSm + alpha * d + 360) % 360;
 }
 function getH(){return S.hSm==null?null:(S.hSm+S.hOff+360)%360;}
 function hideCWarn(){
