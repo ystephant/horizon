@@ -212,7 +212,7 @@ border-radius:0
 #fw{position:fixed;bottom:var(--hud-h,50px);left:0;right:0;z-index:21;display:flex;flex-direction:column;gap:0;pointer-events:auto;background:#f8f4ea;border-top:1px solid rgba(91,158,201,.18);border-bottom:1px solid rgba(91,158,201,.18);box-shadow:0 -1px 8px rgba(58,127,168,.08)}
 .frow{display:flex;gap:6px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:3px 12px}
 .frow::-webkit-scrollbar{display:none}
-#dfrow{background:#f8f4ea;padding:5px 0;border-top:1px solid rgba(91,158,201,.15)}
+#dfrow{background:#f8f4ea;padding:5px 0 5px 12px;border-top:1px solid rgba(91,158,201,.15)}
 .pill{flex-shrink:0;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;padding:5px 11px;border-radius:20px;border:1px solid var(--bord);background:rgba(255,255,255,.6);color:var(--txlight);cursor:pointer;transition:all .18s;white-space:nowrap;box-shadow:0 1px 4px rgba(58,127,168,.1);touch-action:manipulation;-webkit-touch-callout:none}
 .pill:active{transform:scale(.93)}
 .pill.on{border-color:var(--amberbd);background:var(--amberbg);color:var(--amber);font-weight:800}
@@ -393,6 +393,13 @@ letter-spacing:-.01em
 #deniedov p{font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;color:var(--txlight);line-height:1.85;max-width:310px}
 #deniedov .d-retry{width:100%;max-width:310px;background:rgba(201,77,58,.1);border:1.5px solid rgba(201,77,58,.4);border-radius:13px;padding:14px;font-family:'Nunito',sans-serif;font-size:13px;font-weight:800;color:var(--red);cursor:pointer;margin-top:6px}
 #deniedov .d-continue{width:100%;max-width:310px;background:rgba(91,158,201,.1);border:1px solid var(--bord);border-radius:13px;padding:12px;font-family:'Nunito',sans-serif;font-size:11px;font-weight:600;color:var(--txlight);cursor:pointer}
+
+/* ── LANDSCAPE WARNING ───────────────────────────────────── */
+#landscapeov{position:fixed;inset:0;z-index:500;background:linear-gradient(160deg,#daeef8 0%,#eef5f9 40%,#f5e9d0 100%);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:32px;text-align:center}
+#landscapeov.on{display:flex}
+#landscapeov .ls-icon{font-size:52px}
+#landscapeov h2{font-family:'Lora',serif;font-size:20px;font-weight:700;color:var(--tx);line-height:1.3}
+#landscapeov p{font-family:'Nunito',sans-serif;font-size:12px;font-weight:600;color:var(--txlight);line-height:1.7;max-width:300px}
 
 /* ── LOGO IMAGE ──────────────────────────────────────────── */
 .d-logo-img{display:block;margin:0 auto 6px;width:min(80vw,400px);height:auto;object-fit:contain}
@@ -671,6 +678,13 @@ letter-spacing:-.01em
   </div>
 </div>
 
+<!-- LANDSCAPE WARNING -->
+<div id="landscapeov">
+  <div class="ls-icon">📱↩️</div>
+  <h2>Mode portrait requis</h2>
+  <p>Cette application fonctionne uniquement en mode <strong>portrait</strong>.<br>Tournez votre téléphone pour continuer.</p>
+</div>
+
 <script>
 // ═══════════════════════════════════════════
 // CONFIG
@@ -691,6 +705,7 @@ const CATS = [
   {id:'lh',   lb:'🗼 Phares',      cc:'#fbbf24'},
   {id:'site',  lb:'📌 Lieux-dits',  cc:'#f472b6'},
   {id:'beach', lb:'🏖 Plages',        cc:'#fcd34d'},
+  {id:'water', lb:'💧 Plans d\'eau',  cc:'#60a5fa'},
 ];
 const FOV = 75, FOV2 = FOV/2;
 // alpha géré dans S.alpha (user-configurable)
@@ -707,6 +722,7 @@ const S = {
   fetchLat:null, fetchLng:null,
   dbgOpen:false, dbgRaw:null,
   maxD:5000,  minD:0,      // fourchette distance
+  tol:0,                   // tolérance distance (0, 0.10, 0.20)
   band:false, bandPct:0.20,
   cat:'all',
   detPOI:null,
@@ -988,20 +1004,33 @@ function getScreenAngle(){
   return 0;
 }
 
-// Formule W3C avec garde dégénérée et fallback robuste
-// alpha = rotation Z (boussole), beta = tangage, gamma = roulis
-// Sur Android tenu vertical (beta≈90°), la formule W3C est correcte.
-// Mais si |Vx|²+|Vy|² est trop petit (orientation extrême), elle diverge :
-// on retombe alors sur la formule plate (360-alpha) qui est stable.
+// ── FORMULE BOUSSOLE ─────────────────────────────────────────────────────
+//
+// Analyse : en portrait vertical (beta≈90°), la formule W3C introduit une
+// erreur directement proportionnelle à gamma (roulis). Pour gamma=30°
+// l'erreur est de 30° — pire que la formule plate.
+// La formule plate (360-alpha) est validée correcte par l'utilisateur
+// et est stable pour toute valeur de gamma en portrait.
+//
+// Stratégie :
+//   · beta dans [45°, 135°] = portrait → formule plate (360-alpha)
+//   · beta hors de cette plage = phone très incliné/plat → W3C blendé
+//   · iOS → webkitCompassHeading (géré par le système, pas touché)
+// ─────────────────────────────────────────────────────────────────────────
+
 function tiltCompensatedHeading(alpha, beta, gamma){
   if(alpha == null) return null;
   const sa = getScreenAngle();
-  // Fallback plat robuste
+  // Formule portrait — prouvée correcte, stable pour tout gamma
   const flat = (360 - alpha + sa + 360) % 360;
 
-  // Pas de données beta/gamma → on utilise le fallback directement
   if(beta == null) return flat;
 
+  // Zone portrait (45°–135°) : formule plate directement
+  const betaDev = Math.abs(beta - 90); // 0 = parfaitement vertical
+  if(betaDev <= 45) return flat;
+
+  // Phone très incliné/presque à plat : W3C corrige la mesure
   const toRad = Math.PI / 180;
   const a = alpha * toRad;
   const b = beta  * toRad;
@@ -1011,19 +1040,22 @@ function tiltCompensatedHeading(alpha, beta, gamma){
   const cB = Math.cos(b), sB = Math.sin(b);
   const cG = Math.cos(g), sG = Math.sin(g);
 
-  // Composantes horizontales de l'axe Y du téléphone dans le repère monde
   const Vx = - cA * sG - sA * sB * cG;
   const Vy = - sA * sG + cA * sB * cG;
 
-  // Garde dégénérée : si le vecteur horizontal est quasi-nul
-  // (phone à plat, ou inclinaison extrême), la formule devient instable.
-  // Seuil 0.15 ≈ phone incliné à moins de ~9° de l'horizontal → fallback.
   const mag = Math.sqrt(Vx * Vx + Vy * Vy);
   if(mag < 0.15) return flat;
 
   let h = Math.atan2(Vx / mag, Vy / mag) * 180 / Math.PI;
   if(h < 0) h += 360;
-  return (h + sa + 360) % 360;
+  const w3c = (h + sa + 360) % 360;
+
+  // Blend progressif : 0% W3C à betaDev=45° → 100% W3C à betaDev=90°
+  const blend = Math.min((betaDev - 45) / 45, 1);
+  let diff = w3c - flat;
+  if(diff >  180) diff -= 360;
+  if(diff < -180) diff += 360;
+  return (flat + blend * diff + 360) % 360;
 }
 
 function onOriAbs(e){
@@ -1247,6 +1279,22 @@ function _rebuildMinRow(){
     };
     rr.appendChild(b);
   });
+  // Séparateur + tolérance
+  const sep=document.createElement('span');
+  sep.className='rng-lbl'; sep.style.marginLeft='6px'; sep.textContent='TOL';
+  rr.appendChild(sep);
+  [{l:'±0%',v:0},{l:'±10%',v:0.10},{l:'±20%',v:0.20}].forEach(t=>{
+    const b=document.createElement('button');
+    b.className='rpill tol-pill'+(t.v===S.tol?' on':'');
+    b.textContent=t.l;
+    b.onclick=()=>{
+      S.tol=t.v;
+      document.querySelectorAll('#rangerow .tol-pill').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      applyFilter();
+    };
+    rr.appendChild(b);
+  });
 }
 
 function selCat(id){
@@ -1259,7 +1307,8 @@ function selCat(id){
 // FILTER LOGIC
 // ═══════════════════════════════════════════
 function applyFilter(){
-  const dMin=S.minD, dMax=S.maxD;
+  const dMin=S.minD * (1 - S.tol);
+  const dMax=S.maxD * (1 + S.tol);
   const filtered=S.allPOIs.filter(p=>{
     if(p.dist<dMin||p.dist>dMax) return false;
     return S.cat==='all'||p.type.cat===S.cat;
@@ -1299,6 +1348,7 @@ function classifyByName(name){
   if(/\b(falaise|cliffs?)\b/.test(n))                            return{emoji:'🪨',label:'Falaise',cat:'coast'};
   if(/\b(forêt|bois|woods?|forest)\b/.test(n))                    return{emoji:'🌲',label:'Forêt',cat:'wood'};
   if(/\b(plage|beach|spiaggia|grève|greve)/.test(n))                  return{emoji:'🏖',label:'Plage',cat:'beach'};
+  if(/\b(lac |lac$|étang|mare |mare$|réservoir|retenue|plan d.eau|lagune|bassin)/.test(n)) return{emoji:'💧',label:'Plan d\'eau',cat:'water'};
   if(/\b(lieu-dit|lieudit|hameau|écart|lieu dit)/.test(n))       return{emoji:'📌',label:'Lieu-dit',cat:'site'};
   return null; // inconnu → sera classifié comme ville par défaut
 }
@@ -1505,7 +1555,7 @@ function classifyOSM(t,name){
   if(to==='museum')return{emoji:'🏛️',label:'Musée',cat:'site'};
   if(to==='attraction'||to==='artwork')return{emoji:'🌟',label:'Attraction',cat:'site'};
   if(ww==='river'||ww==='canal')return{emoji:'🏞️',label:'Cours d\'eau',cat:'coast'};
-  if(n==='water')return{emoji:'💧',label:'Plan d\'eau',cat:'coast'};
+  if(n==='water')return{emoji:'💧',label:'Plan d\'eau',cat:'water'};
   // ── Priorité 2 : détection par nom (avant les tags place) ───
   const byName = classifyByName(name);
   if(byName) return byName;
@@ -2032,6 +2082,24 @@ document.getElementById('hdg').addEventListener('touchend',()=>clearTimeout(_hdg
 
 // Verrou orientation portrait si supporté
 try{screen.orientation.lock('portrait').catch(()=>{});}catch(e){}
+
+// ── Détection mode paysage ────────────────────────────────────────────────
+function _isLandscape(){
+  const sa = getScreenAngle();
+  return sa === 90 || sa === 270 || sa === -90;
+}
+function _checkOrientation(){
+  const ov = document.getElementById('landscapeov');
+  if(_isLandscape()){
+    ov.classList.add('on');
+  } else {
+    ov.classList.remove('on');
+  }
+}
+window.addEventListener('resize', _checkOrientation);
+window.addEventListener('orientationchange', _checkOrientation);
+if(screen.orientation) screen.orientation.addEventListener('change', _checkOrientation);
+_checkOrientation();
 
 window.addEventListener('resize',()=>{poiEls.forEach(e=>e.remove());poiEls.clear();clustEls.forEach(e=>e.remove());clustEls.clear();});
 </script>
