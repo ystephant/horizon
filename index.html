@@ -138,6 +138,15 @@ border-radius:0
   color:var(--seadeep);font-weight:800}
 
 
+/* ── NO POI MESSAGE ──────────────────────────────────────── */
+#nopoi{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:18;
+  background:rgba(250,246,238,.92);border:1.5px solid var(--bord);border-radius:16px;
+  padding:18px 22px;backdrop-filter:blur(14px);box-shadow:var(--shadow-md);
+  display:none;text-align:center;pointer-events:none;max-width:280px}
+#nopoi.on{display:block}
+#nopoi p{font-family:'Lora',serif;font-size:13px;color:var(--tx);line-height:1.7;margin-top:8px}
+#nopoi .nopoi-ico{font-size:28px;display:block}
+
 /* vignette douce style peinture — bords légèrement estompés */
 .vig{position:fixed;inset:0;z-index:5;background:radial-gradient(ellipse at center,transparent 45%,rgba(238,245,249,.35) 100%);pointer-events:none}
 #ar{position:fixed;inset:0;z-index:10;pointer-events:none}
@@ -499,10 +508,16 @@ letter-spacing:-.01em
   <div id="poic"></div>
 </div>
 
+<!-- NO POI MESSAGE -->
+<div id="nopoi">
+  <span class="nopoi-ico">🔭</span>
+  <p>Aucun point d'intérêt trouvé.<br>Merci de relancer la recherche.</p>
+</div>
+
 <!-- COMPASS -->
 <div id="cbar"><div id="ctrack"><div id="cctr"></div></div></div>
 <div id="hdg">---° N</div>
-<button id="sensibtn" onclick="toggleSens()">🧭 Sensibilité</button>
+<button id="sensibtn" onclick="toggleSens()">🧭 Directe</button>
 <button id="backbtn" onclick="goMenu()">← Menu</button>
 
 <!-- SENSITIVITY PANEL -->
@@ -511,10 +526,10 @@ letter-spacing:-.01em
   <!-- niveaux : id, label, alpha de base, nb segments (sur 5) -->
   <div class="slvl" data-alpha="0"    data-bars="0" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Figée</span><span class="slvl-bar"><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
   <div class="slvl" data-alpha="0.05" data-bars="1" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Douce</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
-  <div class="slvl on" data-alpha="0.12" data-bars="2" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Normale</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
+  <div class="slvl" data-alpha="0.12" data-bars="2" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Normale</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
   <div class="slvl" data-alpha="0.28" data-bars="3" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Réactive</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span><span class="slvl-seg"></span></span></div>
   <div class="slvl" data-alpha="0.55" data-bars="4" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Vive</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg"></span></span></div>
-  <div class="slvl" data-alpha="1"    data-bars="5" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Directe</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span></span></div>
+  <div class="slvl on" data-alpha="1"    data-bars="5" onclick="setSens(this)"><span class="slvl-dot"></span><span class="slvl-lbl">Directe</span><span class="slvl-bar"><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span><span class="slvl-seg fill"></span></span></div>
 </div>
 
 <!-- DIRECTION ARROWS (left side: N & W — right side: E & S) -->
@@ -696,14 +711,14 @@ const S = {
   cat:'all',
   detPOI:null,
   centerPOI:null,          // POI closest to crosshair center
-  alpha:0.12,              // sensibilité boussole (0=figée, 1=directe)
+  alpha:1.0,              // sensibilité boussole — défaut: Directe (user-configurable)
 };
 let lmap=null, lmk=null, pLat=null, pLng=null;
 let cRelTimer=null;
 const poiEls=new Map();
 const clustEls=new Map(); // clusters affichés
 const CLUSTER_PX=55;    // distance horiz. px pour fusionner
-const SMOOTH=0.10;       // lissage position (0=figé, 1=immédiat)
+const SMOOTH=0.5;        // lissage position POI (0=figé, 1=immédiat) — sur position brute
 
 // ═══════════════════════════════════════════
 // PERMISSIONS FLOW
@@ -1211,6 +1226,10 @@ function applyFilter(){
   clustEls.forEach(e=>e.remove()); clustEls.clear();
   const rng=dMin>0?`${fmt(dMin)} – ${fmt(dMax)}`:`0 – ${fmt(dMax)}`;
   document.getElementById('pcnt').textContent=`${S.pois.length} pts · ${rng}`;
+  // Message aucun POI
+  const noPoiEl=document.getElementById('nopoi');
+  if(S.pois.length===0 && S.gpsOk) noPoiEl.classList.add('on');
+  else noPoiEl.classList.remove('on');
 }
 
 // ═══════════════════════════════════════════
@@ -1356,8 +1375,10 @@ async function fetchPOIs(){
   if(!S.lat) return;
   showDbg('🔍 Recherche POIs…', 60000);
   document.getElementById('ldr').classList.add('on');
+  document.getElementById('nopoi').classList.remove('on'); // cacher message précédent
   const lat=S.lat, lng=S.lng;
-  const radiusM=Math.min(100000, Math.max(5000, S.maxD*1.5));
+  // Utiliser exactement la plage sélectionnée — pas de sur-requête
+  const radiusM = Math.min(150000, S.maxD);
 
   // Lancer Overpass + Wikipedia en parallèle
   const [ovItems, wikiItems] = await Promise.all([
@@ -1376,6 +1397,7 @@ async function fetchPOIs(){
   const total = wikiItems.length + ovItems.length + nomItems.length;
   if(!total){
     showDbg('❌ Aucune source disponible – réseau ou APIs inaccessibles', 8000);
+    document.getElementById('nopoi').classList.add('on');
     return;
   }
   showDbg(`✓ OSM:${ovItems.length} Wiki:${wikiItems.length} Nom:${nomItems.length}`);
@@ -1607,9 +1629,9 @@ function updPOIs(h){
   for(const p of S.pois){
     const df=useHeading?ndeg(p.bearing-effectiveH):0;
     if(useHeading&&Math.abs(df)>FOV2*1.2) continue;
-    const xRaw=W/2+(df/FOV2)*(W/2);
-    const xCl=Math.max(0,Math.min(W,xRaw));
-    vis.push({p,df,xCl});
+    const xRaw=W/2+(df/FOV2)*(W/2); // position réelle non clamée
+    const xCl=Math.max(0,Math.min(W,xRaw));   // position affichée
+    vis.push({p,df,xRaw,xCl});
     const a=Math.abs(df);
     if(a<bestDf&&a<12){bestDf=a;bestPOI=p;}
   }
@@ -1646,15 +1668,16 @@ function updPOIs(h){
     const xAvg=grp.reduce((s,v)=>s+v.xCl,0)/grp.length;
     if(grp.length===1){
       // POI individuel
-      const {p,df}=grp[0];
+      const {p,df,xRaw}=grp[0];
       let e=poiEls.get(p.name);
-      if(!e){e=buildPOI(p);poic.appendChild(e);poiEls.set(p.name,e);}
-      // Lissage anti-tremblement
-      const prevX=parseFloat(e.dataset.smX||xAvg);
-      const smX=prevX+(xAvg-prevX)*SMOOTH;
+      const isNew=!e;
+      if(isNew){e=buildPOI(p);poic.appendChild(e);poiEls.set(p.name,e);}
+      // Lissage sur position brute (non clamée) — snap immédiat si élément nouveau
+      const prevRaw=isNew?xRaw:parseFloat(e.dataset.smX||xRaw);
+      const smX=isNew?xRaw:prevRaw+(xRaw-prevRaw)*SMOOTH;
       e.dataset.smX=smX;
       const topPx=(parseFloat(e.dataset.topPct)/100)*H;
-      e.style.left=smX+'px';
+      e.style.left=Math.max(0,Math.min(W,smX))+'px'; // clamp uniquement pour l'affichage
       e.style.top=topPx+'px';
       const a=Math.abs(df);
       e.dataset.f=a>FOV2*.7?3:a>FOV2*.4?2:1;
@@ -1664,17 +1687,19 @@ function updPOIs(h){
       // Cluster
       const key=grp.map(v=>v.p.name).sort().join('|');
       let ce=clustEls.get(key);
-      if(!ce){
+      const isNewC=!ce;
+      if(isNewC){
         const sorted=[...grp].sort((a,b)=>a.p.dist-b.p.dist);
         ce=buildCluster(sorted,key);
         poic.appendChild(ce);
         clustEls.set(key,ce);
       }
-      // Lissage cluster
-      const prevX=parseFloat(ce.dataset.smX||xAvg);
-      const smX=prevX+(xAvg-prevX)*SMOOTH;
-      ce.dataset.smX=smX;
-      ce.style.left=smX+'px';
+      // Lissage cluster : snap immédiat si nouveau
+      const xRawAvg=grp.reduce((s,v)=>s+v.xRaw,0)/grp.length;
+      const prevXC=isNewC?xRawAvg:parseFloat(ce.dataset.smX||xRawAvg);
+      const smXC=isNewC?xRawAvg:prevXC+(xRawAvg-prevXC)*SMOOTH;
+      ce.dataset.smX=smXC;
+      ce.style.left=Math.max(0,Math.min(W,smXC))+'px';
       ce.style.top='38%';
       // Cacher POIs individuels du cluster
       for(const v of grp){
